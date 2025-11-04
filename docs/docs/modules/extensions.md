@@ -1,5 +1,6 @@
 ---
 sidebar_position: 5
+sidebar_label: 🚀 FastAPI Extensions
 title: FastAPI Extensions Module
 description: FastAPI integration with authentication middleware, JSON:API dependencies, and response utilities
 ---

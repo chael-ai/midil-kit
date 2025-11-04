@@ -1,5 +1,6 @@
 ---
 sidebar_position: 3
+sidebar_label: 🌐 HTTP Client
 title: HTTP Client Module
 description: Enhanced HTTP client with authentication, retry logic, and transport layer customization
 ---
