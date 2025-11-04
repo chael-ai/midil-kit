@@ -1,6 +1,6 @@
 # MidilAPI Documentation
 
-## 1. Introduction
+##  Overview
 
 MidilAPI is a powerful and opinionated Python API framework built on top of FastAPI, designed to accelerate the development of web services that adhere to the [JSON:API specification](https://jsonapi.org/). It provides a structured approach to API development, integrating robust authentication, standardized query parameter parsing, and streamlined project scaffolding.
 
@@ -12,21 +12,21 @@ __Key Features:__
 - __Standardized Query Parameters__: Simplifies the handling of common API patterns like sorting and including related resources, following JSON:API conventions.
 - __CLI Scaffolding__: Enables rapid project setup and consistent project structures through the `midil` command-line interface.
 
-## 2. Getting Started
+##  Getting Started
 
 To begin using MidilAPI, you'll typically start by scaffolding a new service using the `midil` CLI.
 
-### 2.1. Prerequisites
+###  Prerequisites
 
 - Python 3.8+
 - `midil-kit` installed (usually via `pip install midil-kit`)
 
-### 2.2. Creating a New MidilAPI Service
+###  Creating a New MidilAPI Service
 
 Use the `midil init service` command to create a new project:
 
 ```bash
-midil init service my-awesome-api
+midil init my-awesome-api
 ```
 
 This command will:
@@ -35,7 +35,7 @@ This command will:
 - Populate it with a basic FastAPI application structure, including `main.py`, `pyproject.toml`, and a `README.md`.
 - Configure the project to use MidilAPI's features.
 
-## 3. MidilAPI Module File Structure
+##  MidilAPI Module File Structure
 
 The `midilapi` module itself, as part of the `midil-kit`, has a well-defined internal structure. This structure organizes its core components, dependencies, and middleware.
 
@@ -77,15 +77,15 @@ __Explanation of Key Directories/Files within `midilapi/`:__
 
 Understanding this internal structure is crucial for developers who wish to extend, customize, or deeply integrate with the `midilapi` framework.
 
-## 4. Core Components and Features
+##  Core Components and Features
 
-### 4.1. The `MidilAPI` Application Class
+###  The `MidilAPI` Application Class
 
 The heart of your MidilAPI service is the `MidilAPI` class, which extends FastAPI.
 
 __Location__: `midilapi/__init__.py`
 
-```python
+```python showLineNumbers
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from typing import Any, Dict
@@ -114,7 +114,7 @@ __Key Responsibilities__:
 
 __Basic Usage__:
 
-```python
+```python showLineNumbers
 from midil.midilapi import MidilAPI, register_jsonapi_exception_handlers
 
 app = MidilAPI(
@@ -131,13 +131,13 @@ async def health_check():
     return {"data": {"type": "status", "id": "1", "attributes": {"status": "ok"}}}
 ```
 
-### 4.2. Configuration
+###  Configuration
 
 MidilAPI uses Pydantic models for type-safe and validated configuration.
 
 __Location__: `midilapi/config.py`
 
-```python
+```python showLineNumbers
 from midil.utils.models import SnakeCaseModel
 from pydantic import Field
 
@@ -159,141 +159,14 @@ class MidilApiConfig(SnakeCaseModel, extra="allow"):
 
 These configurations define how your MidilAPI application runs, including network settings. They are typically loaded at application startup, often managed by the `midil` CLI's `launch` command.
 
-## 5. Authentication
 
-MidilAPI provides robust authentication capabilities, with built-in support for JWT-based authentication and AWS Cognito.
-
-### 5.1. Authentication Dependency (`authorize_request`)
-
-The `authorize_request` dependency simplifies securing your API endpoints.
-
-__Location__: `midilapi/dependencies/auth.py`
-
-```python
-from fastapi import Depends
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from midil.auth.cognito.jwt_authorizer import CognitoJWTAuthorizer
-from midil.settings import get_auth_settings
-from midil.auth.interfaces.models import AuthZTokenClaims
-from loguru import logger
-
-security = HTTPBearer(auto_error=True)
-
-async def authorize_request(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> AuthZTokenClaims:
-    """
-    Authenticates a request using a JWT token from the Authorization header.
-    Verifies the token against AWS Cognito and returns decoded claims.
-    """
-    token = credentials.credentials
-    cognito_settings = get_auth_settings("cognito")
-    authorizer = CognitoJWTAuthorizer(
-        user_pool_id=cognito_settings.user_pool_id,
-        region=cognito_settings.region,
-    )
-    claims = await authorizer.verify(token)
-    logger.info(f"Authenticated request for user {claims.sub}")
-    return claims
-```
-
-__Usage__:
-
-To protect an endpoint, simply add `authorize_request` as a dependency:
-
-```python
-from midil.midilapi import MidilAPI
-from midil.midilapi.dependencies.auth import authorize_request
-from midil.auth.interfaces.models import AuthZTokenClaims
-from midil.midilapi.responses import JSONAPIResponse
-
-app = MidilAPI()
-
-@app.get("/me", response_model=JSONAPIResponse)
-async def get_current_user(claims: AuthZTokenClaims = Depends(authorize_request)):
-    """
-    Returns information about the authenticated user.
-    Requires a valid JWT in the Authorization header.
-    """
-    return {
-        "data": {
-            "type": "users",
-            "id": claims.sub,
-            "attributes": {
-                "email": claims.email,
-                "username": claims.username,
-                # ... other claims
-            }
-        }
-    }
-```
-
-### 5.2. Authentication Middleware (`CognitoAuthMiddleware`)
-
-For global authentication handling, MidilAPI provides middleware.
-
-__Location__: `midilapi/middleware/auth_middleware.py`
-
-```python
-# ... (imports and AuthContext class) ...
-
-class BaseAuthMiddleware(BaseHTTPMiddleware):
-    # ... (base implementation) ...
-    async def authorizer(self, request: Request) -> AuthZProvider:
-        raise NotImplementedError("Authorizer not implemented")
-
-class CognitoAuthMiddleware(BaseAuthMiddleware):
-    """
-    Middleware to extract cognitoauth headers from request and store them in the request state.
-    """
-    async def authorizer(self, request: Request) -> AuthZProvider:
-        cognito_settings = get_auth_settings("cognito")
-        return CognitoJWTAuthorizer(
-            user_pool_id=cognito_settings.user_pool_id, region=cognito_settings.region
-        )
-```
-
-__Usage__:
-
-Add `CognitoAuthMiddleware` to your `MidilAPI` application:
-
-```python
-from midil.midilapi import MidilAPI
-from midil.midilapi.middleware.auth_middleware import CognitoAuthMiddleware
-from starlette.requests import Request
-from midil.midilapi.responses import JSONAPIResponse
-from fastapi import Depends
-
-app = MidilAPI()
-app.add_middleware(CognitoAuthMiddleware)
-
-# Helper to get auth context from request state
-def get_auth_context(request: Request):
-    return request.state.auth
-
-@app.get("/protected-resource", response_model=JSONAPIResponse)
-async def protected_resource(auth_context = Depends(get_auth_context)):
-    """
-    An endpoint protected by the CognitoAuthMiddleware.
-    Accesses authenticated user claims from request.state.auth.
-    """
-    user_id = auth_context.claims.sub
-    return {
-        "data": {
-            "type": "resources",
-            "id": "some-id",
-            "attributes": {"message": f"Hello, user {user_id}!"}
-        }
-    }
-```
-
-## 6. JSON:API Query Parameters
+##  JSON:API Query Parameters
 
 MidilAPI simplifies parsing common JSON:API query parameters like `sort` and `include`.
 
 __Location__: `midilapi/dependencies/jsonapi.py`
 
-```python
+```python showLineNumbers
 from typing import List, Optional
 from fastapi import Query, Depends
 from midil.jsonapi.query import Sort, SortField, Include
@@ -325,7 +198,7 @@ __Usage__:
 
 Integrate these functions as dependencies in your endpoint definitions:
 
-```python
+```python showLineNumbers
 from midil.midilapi import MidilAPI
 from midil.midilapi.dependencies.jsonapi import parse_sort, parse_include
 from midil.jsonapi.query import Sort, Include
@@ -365,28 +238,4 @@ async def list_articles(
     return {"data": response_data}
 ```
 
-## 7. CLI Integration and Scaffolding
 
-The `midil` CLI provides a `FastAPIServiceScaffolder` to quickly set up new MidilAPI projects.
-
-__Location__: `cli/core/scaffolds/fastapi.py`
-
-```python
-from pathlib import Path
-from typing import Dict, Any
-from cookiecutter.main import cookiecutter
-from rich.console import Console
-from midil.cli.core.scaffolds.base import ProjectScaffolder
-
-class FastAPIServiceScaffolder(ProjectScaffolder):
-    """
-    Concrete scaffolder using Cookiecutter for FastAPI services.
-    """
-    # ... (implementation details) ...
-
-    def scaffold(self, name: str) -> None:
-        # ... (cookiecutter invocation) ...
-        pass
-```
-
-This scaffolder uses `cookiecutter` with the `cookiecutter-midil-project` template to generate a ready-to-use MidilAPI service, ensuring consistency and adherence to project best practices.
