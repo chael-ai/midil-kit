@@ -1,5 +1,6 @@
 ---
 sidebar_position: 1
+sidebar_label: 🔐 Authentication
 title: Authentication Module
 description: Comprehensive authentication and authorization for backend systems
 ---
