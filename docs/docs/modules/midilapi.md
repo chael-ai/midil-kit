@@ -2,30 +2,30 @@
 
 ##  Overview
 
-MidilAPI is a powerful and opinionated Python API framework built on top of FastAPI, designed to accelerate the development of web services that adhere to the [JSON:API specification](https://jsonapi.org/). It provides a structured approach to API development, integrating robust authentication, standardized query parameter parsing, and streamlined project scaffolding.
+MidilAPI is a powerful and opinionated Python API framework built on top of FastAPI, designed to accelerate the development of web services that adhere to the [JSONAPI specification](https://jsonapi.org/). It provides a structured approach to API development, integrating robust authentication, standardized query parameter parsing, and streamlined project scaffolding.
 
 __Key Features:__
 
-- __JSON:API Compliance__: Ensures consistent data exchange and API interactions by enforcing JSON:API standards.
+- __JSONAPI Compliance__: Ensures consistent data exchange and API interactions by enforcing JSONAPI standards.
 - __FastAPI Foundation__: Leverages FastAPI's high performance, automatic OpenAPI documentation, and intuitive dependency injection system.
 - __Integrated Authentication__: Provides out-of-the-box support for JWT-based authentication, with specific integration for AWS Cognito.
-- __Standardized Query Parameters__: Simplifies the handling of common API patterns like sorting and including related resources, following JSON:API conventions.
+- __Standardized Query Parameters__: Simplifies the handling of common API patterns like sorting and including related resources, following JSONAPI conventions.
 - __CLI Scaffolding__: Enables rapid project setup and consistent project structures through the `midil` command-line interface.
-
-##  Getting Started
-
-To begin using MidilAPI, you'll typically start by scaffolding a new service using the `midil` CLI.
 
 ###  Prerequisites
 
 - Python 3.8+
 - `midil-kit` installed (usually via `pip install midil-kit`)
 
-###  Creating a New MidilAPI Service
+###  Setting up
 
-Use the `midil init service` command to create a new project:
+To begin using MidilAPI, you'll typically start by scaffolding a new service using the `midil` CLI.
+Use the `midil init <service>` command to create a new project:
 
 ```bash
+midil init <service>
+
+# Example:
 midil init my-awesome-api
 ```
 
@@ -35,9 +35,11 @@ This command will:
 - Populate it with a basic FastAPI application structure, including `main.py`, `pyproject.toml`, and a `README.md`.
 - Configure the project to use MidilAPI's features.
 
+When initializing a service for the first time the midil-kit CLI will walk you through service descriptions like assigning the name of the service, the version of the service, the author and so on. You can default through these steps by hitting `Enter` on every prompting.
+
 ##  MidilAPI Module File Structure
 
-The `midilapi` module itself, as part of the `midil-kit`, has a well-defined internal structure. This structure organizes its core components, dependencies, and middleware.
+The `midilapi` module itself, as part of the `midil-kit`, by default has a well-defined internal structure. This structure organizes its core components, dependencies, and middleware.
 
 ```javascript
 midilapi/
@@ -57,20 +59,20 @@ midilapi/
 
 __Explanation of Key Directories/Files within `midilapi/`:__
 
-- __`__init__.py`__: This is the entry point for the `midilapi` module. It defines the `MidilAPI` class, which extends FastAPI to provide JSON:API specific enhancements, and exports key utilities like `register_jsonapi_exception_handlers` and `JSONAPIResponse`.
+- __`__init__.py`__: This is the entry point for the `midilapi` module. It defines the `MidilAPI` class, which extends FastAPI to provide JSONAPI specific enhancements, and exports key utilities like `register_jsonapi_exception_handlers` and `JSONAPIResponse`.
 
 - __`config.py`__: Contains Pydantic models (`ServerConfig`, `MidilApiConfig`) for defining and validating configuration settings related to the API server, such as host and port.
 
-- __`exceptions.py`__: Houses custom exception classes and functions for registering JSON:API compliant exception handlers, ensuring consistent error responses.
+- __`exceptions.py`__: Houses custom exception classes and functions for registering JSONAPI compliant exception handlers, ensuring consistent error responses.
 
-- __`responses.py`__: Defines the `JSONAPIResponse` class, which is a custom FastAPI response class to ensure all API responses adhere to the JSON:API specification.
+- __`responses.py`__: Defines the `JSONAPIResponse` class, which is a custom FastAPI response class to ensure all API responses adhere to the JSONAPI specification.
 
 - __`utils.py`__: A module for general utility functions that support the `midilapi` framework.
 
 - __`dependencies/`__: This sub-directory contains FastAPI dependency functions that can be injected into your API routes.
 
   - `auth.py`: Provides `authorize_request`, a dependency for authenticating requests using JWT tokens and integrating with AWS Cognito.
-  - `jsonapi.py`: Offers `parse_sort` and `parse_include` dependencies for parsing JSON:API standard query parameters for sorting and including related resources.
+  - `jsonapi.py`: Offers `parse_sort` and `parse_include` dependencies for parsing JSONAPI standard query parameters for sorting and including related resources.
 
 - __`middleware/`__: This sub-directory contains Starlette/FastAPI middleware classes for global request processing.
   - `auth_middleware.py`: Defines `BaseAuthMiddleware` and `CognitoAuthMiddleware` for handling authentication across all incoming requests, storing authentication context in the request state.
