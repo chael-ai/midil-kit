@@ -17,7 +17,7 @@ __Key Features:__
 - Python 3.8+
 - `midil-kit` installed (usually via `pip install midil-kit`)
 
-###  Setting up
+###  Setting Up
 
 To begin using MidilAPI, you'll typically start by scaffolding a new service using the `midil` CLI.
 Use the `midil init <service>` command to create a new project:
@@ -98,7 +98,7 @@ from midil.midilapi.utils import _update_openapi_jsonapi_media_types
 
 class MidilAPI(FastAPI):
     """
-    FastAPI subclass that globally sets JSON:API media types in OpenAPI schema.
+    FastAPI subclass that globally sets JSON API media types in OpenAPI schema.
     """
     def openapi(self) -> Dict[str, Any]:
         # ... (implementation details) ...
@@ -110,9 +110,9 @@ __all__ = ["MidilAPI", "register_jsonapi_exception_handlers", "JSONAPIResponse"]
 
 __Key Responsibilities__:
 
-- __JSON:API OpenAPI Integration__: Automatically modifies the generated OpenAPI schema to include JSON:API media types (`application/vnd.api+json`), ensuring your API documentation reflects JSON:API standards.
-- __Standardized Responses__: Provides `JSONAPIResponse` for consistent JSON:API formatted responses.
-- __Exception Handling__: Integrates `register_jsonapi_exception_handlers` to convert common HTTP exceptions into JSON:API error objects.
+- __JSON:API OpenAPI Integration__: Automatically modifies the generated OpenAPI schema to include JSON API media types (`application/vnd.api+json`), ensuring your API documentation reflects JSON API standards.
+- __Standardized Responses__: Provides `JSONAPIResponse` for consistent JSON API formatted responses.
+- __Exception Handling__: Integrates `register_jsonapi_exception_handlers` to convert common HTTP exceptions into JSON API error objects.
 
 __Basic Usage__:
 
@@ -162,9 +162,9 @@ class MidilApiConfig(SnakeCaseModel, extra="allow"):
 These configurations define how your MidilAPI application runs, including network settings. They are typically loaded at application startup, often managed by the `midil` CLI's `launch` command.
 
 
-##  JSON:API Query Parameters
+##  JSON API Query Parameters
 
-MidilAPI simplifies parsing common JSON:API query parameters like `sort` and `include`.
+MidilAPI simplifies parsing common JSON API query parameters like `sort` and `include`.
 
 __Location__: `midilapi/dependencies/jsonapi.py`
 
@@ -215,7 +215,7 @@ async def list_articles(
     include: Optional[Include] = Depends(parse_include)
 ):
     """
-    Retrieves a list of articles, supporting JSON:API sorting and eager loading of relationships.
+    Retrieves a list of articles, supporting JSON API sorting and eager loading of relationships.
     Example: GET /articles?sort=-createdAt,title&include=author,comments.author
     """
     # In a real application, you would use 'sort' and 'include' to modify your database query
