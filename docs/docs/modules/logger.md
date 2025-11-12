@@ -1,4 +1,6 @@
-## Logger Documentation
+# Logger Documentation
+
+## Overview
 
 Think of the `midil` package as a complex machine, like a car. Just as a car has a dashboard with warning lights and gauges to tell you what's happening under the hood, the `midil` package needs a way to report its own status. This is where the `midil/logger` folder comes in. It's the "dashboard" and "event recorder" for the entire `midil` system.
 
@@ -10,7 +12,7 @@ Its main job is to:
 
 Let's break down the key parts of this "logger" system:
 
-### The Logger's Rulebook 
+## The Logger's Rulebook 
 
 Every system needs rules, and our logger gets its rules from `midil/logger/config.py`. This file sets up the basic settings for how our logging system will behave.
 
@@ -37,7 +39,7 @@ The `LoggerConfig` (lines 10-14) defines:
 - `enable_http_logging`: A switch to turn on or off sending logs over the internet to another service, which can be useful for collecting logs from many parts of a large system.
 - `hostname` and `instance_id`: These are unique labels for the computer and the specific running program. They help you know exactly *where* a log message came from, especially if you have many parts of `midil` running at once.
 
-### The Logger's Builder 
+## The Logger's Builder 
 
 Once we have our rules, we need someone to actually build the logging tool. That's the job of `midil/logger/factory.py`. It contains the `LoggerFactory`, which is like a specialized workshop for creating our logger.
 
@@ -79,7 +81,7 @@ The `LoggerFactory` (lines 10-31) does two main things:
 - `add_handler`: It lets us add different "handlers." A handler is simply *where* the log messages go. For example, one handler might print logs to your screen, another might save them to a file, and another might send them to a special log-collecting service.
 - `build`: This is the final step where it puts everything together. It sets up the actual `loguru` logger (a popular logging tool) and makes sure that our unique `hostname` and `instance_id` are attached to every message. It also connects all the handlers we've added.
 
-### Getting the Logger Ready 
+## Getting the Logger Ready 
 
 Now that we have the rules and the builder, we need to actually start the logging system. This is handled by `midil/logger/setup.py`, which has a function called `setup_logger`. This function is like the "on" switch for our logger.
 
@@ -139,7 +141,7 @@ The `setup_logger` function (lines 23-40) does the following:
 
 - Finally, it returns the fully prepared logger, ready to start recording events.
 
-### Connecting the Logger to the Midil package
+## Connecting the Logger to the Midil package
 
 So, how does the entire `midil` package, including parts like `midilapi`, actually use this logger? The connection happens at the very beginning, when `midil` starts up.
 
@@ -185,7 +187,7 @@ Then, in `midil/__init__.py`, which is the very first file loaded when `midil` s
 
 Here, the logging rules are fetched (line 9), and then `setup_logger` is run (lines 11-14). This means that as soon as any part of `midil` (like `midilapi`) begins to operate, the logging system is already fully configured and ready to record events.
 
-### How Midil Uses the Logger
+## How Midil Uses the Logger
 
 Because the logger is set up right when `midil` starts, any part of the `midil` package can easily use it. Developers just import the `loguru` logger and use simple commands to record what's happening.
 
