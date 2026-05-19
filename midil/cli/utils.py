@@ -9,7 +9,7 @@ console = Console()
 def print_logo() -> None:
     width = console.size.width - 4
     figlet = Figlet(font="standard")
-    ascii_art = figlet.renderText("midil-kit")
+    ascii_art = figlet.renderText("midil")
 
     text = Text(ascii_art, style="bold magenta", justify="center")
     panel = Panel(

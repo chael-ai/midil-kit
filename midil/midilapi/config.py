@@ -1,5 +1,7 @@
 from midil.utils.models import SnakeCaseModel
 from pydantic import Field
+from midil.midilapi.pagination.strategies.cursor.config import CursorConfig
+from typing import Optional
 
 
 class ServerConfig(SnakeCaseModel):
@@ -11,7 +13,16 @@ class ServerConfig(SnakeCaseModel):
     )
 
 
+class PaginationConfig(SnakeCaseModel, extra="forbid"):
+    cursor: Optional[CursorConfig] = Field(
+        default=None, description="Cursor pagination configuration."
+    )
+
+
 class MidilApiConfig(SnakeCaseModel, extra="allow"):
     server: ServerConfig = Field(
         default=ServerConfig(), description="Server configuration."
+    )
+    pagination: PaginationConfig = Field(
+        default=PaginationConfig(), description="Pagination configuration."
     )

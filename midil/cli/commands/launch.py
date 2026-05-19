@@ -42,7 +42,7 @@ def launch_command(port: Optional[int], reload: bool, host: Optional[str]):
         f"[dim]🛸 [bold magenta]Launching[/bold magenta] "
         f"[bold white]{app_name}[/bold white] "
         f"[bold green](v{__service_version__})[/bold green]\n"
-        f"   using [bold white]midil-kit[/bold white] "
+        f"   using [bold white]midil[/bold white] "
         f"[bold green](v{__version__})[/bold green]\n"
         f"   on [bold yellow]http://{resolved_host}:{resolved_port}[/bold yellow]\n\n"
         f"✨ [italic magenta]Sit back, relax, and watch the magic happen![/italic magenta][/dim]\n",

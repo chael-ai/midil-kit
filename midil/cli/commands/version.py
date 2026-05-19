@@ -22,8 +22,7 @@ def version_command(short: bool) -> None:
     """
     if short:
         console.print(
-            f"[bold cyan]midil-kit[/bold cyan] "
-            f"[bold green]{__version__}[/bold green]"
+            f"[bold cyan]midil[/bold cyan] " f"[bold green]{__version__}[/bold green]"
         )
         return
 
@@ -35,7 +34,7 @@ def version_command(short: bool) -> None:
     # Build version info lines
     blocks = [
         [
-            "[bold cyan]midil-kit[/bold cyan]",
+            "[bold cyan]midil[/bold cyan]",
             f"  └── version: [bold green]{__version__}[/bold green]",
         ]
     ]
