@@ -1,4 +1,4 @@
-# MIDIL - Modular Interface for Distributed Infrastructure & Logic
+# MIDIL — Managed Interface for Data, Integration & Logic
 
 **Backend infrastructure, as a Python SDK.**
 
@@ -136,7 +136,7 @@ midil version     # show the installed SDK version
 ## Design principles
 
 - **Async-first.** Every component is built for `asyncio` — no sync wrappers.
-- **Modular by default.** Nothing is installed you didn't ask for.
+- **Opt-in by default.** Nothing is installed you didn't ask for.
 - **Interface-driven.** Auth providers, event subscribers, retry strategies — all are abstract base classes you can swap or extend.
 - **Convention over configuration.** Sane defaults, with escape hatches where it matters.
 
