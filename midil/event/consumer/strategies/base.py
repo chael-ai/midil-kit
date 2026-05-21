@@ -1,16 +1,20 @@
-from abc import ABC, abstractmethod
-from typing import Annotated, Optional
-from typing import Any, List, Set
-from pydantic import BaseModel, Field
+from __future__ import annotations
+
 import asyncio
-from loguru import logger
-
-from typing import Awaitable
-from midil.event.subscriber.base import EventSubscriber
-from midil.event.exceptions import RetryableEventError
-
+import time
+from abc import abstractmethod
 from threading import Lock
+from typing import Annotated, Any, List, Optional, Set
+
+from loguru import logger
+from pydantic import BaseModel, Field
+
+from midil.event.connector.base import Connector, ConnectorDirection
+from midil.event.connector.health import ConnectorHealth
+from midil.event.exceptions import RetryableEventError
 from midil.event.message import Message
+from midil.event.observability.hooks import DispatchHook
+from midil.event.subscriber.base import EventSubscriber
 
 
 class ConsumerMessage(Message):
@@ -21,14 +25,6 @@ class ConsumerMessage(Message):
 
 
 class BaseConsumerConfig(BaseModel):
-    """
-    Configuration model for event consumers.
-
-    This model is intended to be subclassed for specific consumer implementations.
-    The 'type' field is used as a discriminator for selecting the appropriate
-    consumer configuration at runtime.
-    """
-
     type: Annotated[
         str,
         Field(
@@ -38,69 +34,123 @@ class BaseConsumerConfig(BaseModel):
     ]
 
 
-class EventConsumer(ABC):
+class EventConsumer(Connector):
     """
-    Abstract base class for event consumers.
+    Abstract base for all event consumers.
 
-    Event consumers are responsible for subscribing to event sources, registering
-    handlers, and managing the lifecycle of event consumption. Subclasses should
-    implement the methods to provide concrete integration with event backends such
-    as message queues, brokers, or other event delivery mechanisms.
+    An EventConsumer is a SOURCE Connector — it receives messages from an
+    external backend and dispatches them to registered EventSubscribers.
 
-    Attributes:
-        _config (EventConsumerConfig): The configuration object for the consumer.
+    The dispatch lifecycle is instrumented through DispatchHooks, which
+    observe each stage (receive → handled/failed/retried) without modifying
+    this class — Open/Closed Principle applied. Attach hooks via add_hook()
+    before calling connect().
+
+    Subclasses implement start(), stop(), ack(), and nack().
     """
 
-    def __init__(self, config: BaseConsumerConfig):
+    def __init__(self, config: BaseConsumerConfig) -> None:
+        self._config = config
         self._subscribers: Set[EventSubscriber] = set()
-        self._config: BaseConsumerConfig = config
         self._subscription_lock = Lock()
+        self._dispatch_hooks: List[DispatchHook] = []
+
+    @property
+    def name(self) -> str:
+        return self._config.type
+
+    @property
+    def direction(self) -> ConnectorDirection:
+        return ConnectorDirection.SOURCE
+
+    async def connect(self) -> None:
+        await self.start()
+
+    async def disconnect(self) -> None:
+        await self.stop()
+
+    async def health(self) -> ConnectorHealth:
+        return ConnectorHealth.unknown()
+
+    def add_hook(self, hook: DispatchHook) -> None:
+        """Attach a DispatchHook to observe this consumer's dispatch lifecycle."""
+        self._dispatch_hooks.append(hook)
+
+    def remove_hook(self, hook: DispatchHook) -> None:
+        self._dispatch_hooks = [h for h in self._dispatch_hooks if h is not hook]
 
     def subscribe(self, subscriber: EventSubscriber) -> None:
-        """
-        Register a handler (subscriber) to receive all events.
-
-        Args:
-            subscriber (EventSubscriber): A subscriber that will be invoked
-                when an event is received. The subscriber receives the event payload as a dictionary.
-        """
         with self._subscription_lock:
             self._subscribers.add(subscriber)
 
     def unsubscribe(self, subscriber: EventSubscriber) -> None:
         """
-        Remove a handler (subscriber).
+        Discard a handler (subscriber).
 
         Args:
             subscriber (EventSubscriber): The subscriber to remove.
         """
         with self._subscription_lock:
-            if subscriber in self._subscribers:
-                self._subscribers.remove(subscriber)
+            self._subscribers.discard(subscriber)
 
     async def dispatch(self, message: Message) -> None:
         """
-        Dispatch events to all registered subscribers.
+        Dispatch a message to all subscribers, timing the full lifecycle
+        and notifying hooks at each stage.
+
+        Flow:
+          1. on_receive hooks
+          2. All subscribers gathered concurrently
+          3. RetryableEventError  →  nack(requeue=True) + on_retry hooks
+          4. Other exceptions     →  ack + on_failure hooks
+          5. Clean run            →  ack + on_complete hooks
         """
+        start = time.monotonic()
+
+        await self._notify_hooks("on_receive", message)
+
         if not self._subscribers:
-            logger.warning("No subscribers registered, skipping event...")
+            logger.warning(
+                f"[{self.name}] No subscribers registered, skipping event {message.id}"
+            )
             return
 
-        # async with event_context(self._config.type, id=str(event.id)) as ctx:
-        tasks: List[Awaitable[Any]] = [
-            subscriber(message) for subscriber in self._subscribers
-        ]
+        results = await asyncio.gather(
+            *[subscriber(message) for subscriber in self._subscribers],
+            return_exceptions=True,
+        )
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+        duration_ms = (time.monotonic() - start) * 1000
 
         if any(isinstance(r, RetryableEventError) for r in results):
-            requeue = True
-            logger.debug(
-                f"Some subscribers failed for event {message.id}, requeue={requeue}"
-            )
-            return await self.nack(message, requeue=requeue)
+            logger.debug(f"[{self.name}] Retryable failure on {message.id}, requeuing")
+            await self._notify_hooks("on_retry", message)
+            return await self.nack(message, requeue=True)
+
+        exceptions = [r for r in results if isinstance(r, Exception)]
+        if exceptions:
+            await self._notify_hooks("on_failure", message, error=exceptions[0])
+        else:
+            await self._notify_hooks("on_complete", message, duration_ms=duration_ms)
 
         return await self.ack(message)
+
+    async def _notify_hooks(self, stage: str, message: Message, **kwargs: Any) -> None:
+        """
+        Notify all dispatch hooks of the event lifecycle stage.
+
+        Args:
+            stage: The stage of the event lifecycle.
+            message: The message to notify the hooks about.
+            **kwargs: Additional keyword arguments to pass to the hook.
+        """
+        for hook in self._dispatch_hooks:
+            try:
+                await getattr(hook, stage)(message, self.name, **kwargs)
+            except Exception as exc:
+                logger.warning(
+                    f"[{self.name}] Hook {hook.__class__.__name__}.{stage} raised: {exc}"
+                )
 
     @abstractmethod
     async def start(self) -> None:

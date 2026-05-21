@@ -1,6 +1,11 @@
-from abc import ABC, abstractmethod
+from __future__ import annotations
+
+from abc import abstractmethod
 
 from pydantic import BaseModel, Field
+
+from midil.event.connector.base import Connector, ConnectorDirection
+from midil.event.connector.health import ConnectorHealth
 from midil.event.message import MessageBody
 
 
@@ -8,49 +13,42 @@ class BaseProducerConfig(BaseModel):
     type: str = Field(..., description="Type of the producer configuration")
 
 
-class EventProducer(ABC):
+class EventProducer(Connector):
     """
-    Abstract base class for event producers.
+    Abstract base for all event producers.
 
-    Event producers are responsible for emitting events to an external system or message bus.
-    Implementations of this class should provide concrete logic for publishing events to
-    backends such as message queues, pub/sub systems, or other event streaming platforms.
+    An EventProducer is a DESTINATION Connector — it accepts event payloads
+    and routes them to an external backend (SQS, Redis, etc.).
 
-    Methods:
-        publish(payload, **kwargs):
-            Asynchronously publish an event of the specified type with the given payload.
-            The payload should be a dictionary containing the event data. Implementations
-            may use additional keyword arguments for backend-specific options such as
-            message attributes, delivery delay, or partitioning.
-
-        close():
-            Release any resources held by the producer, such as network connections,
-            file handles, or background threads. This method should be called when the
-            producer is no longer needed to ensure proper cleanup.
+    Subclasses must implement publish() and close(). The connect/disconnect/health
+    methods have sensible defaults but can be overridden for richer lifecycle control.
     """
+
+    def __init__(self, config: BaseProducerConfig) -> None:
+        self._config = config
+
+    @property
+    def name(self) -> str:
+        return self._config.type
+
+    @property
+    def direction(self) -> ConnectorDirection:
+        return ConnectorDirection.DESTINATION
+
+    async def connect(self) -> None:
+        """No-op by default — producers typically connect lazily on first publish."""
+        pass
+
+    async def disconnect(self) -> None:
+        await self.close()
+
+    async def health(self) -> ConnectorHealth:
+        return ConnectorHealth.unknown()
 
     @abstractmethod
     async def publish(self, payload: MessageBody, **kwargs) -> None:
-        """
-        Asynchronously publish an event to the event backend.
-
-        Args:
-            payload (Dict[str, Any]): The event data to be sent, as a dictionary.
-            **kwargs: Additional backend-specific options (e.g., message attributes,
-                delivery delay, partition key).
-
-        Raises:
-            Exception: Implementations should raise an exception if publishing fails.
-        """
-        pass
+        ...
 
     @abstractmethod
     async def close(self) -> None:
-        """
-        Release any resources associated with the producer.
-
-        This may include closing network connections, flushing buffers, or shutting down
-        background threads. After calling this method, the producer should not be used
-        to publish further events.
-        """
-        pass
+        ...

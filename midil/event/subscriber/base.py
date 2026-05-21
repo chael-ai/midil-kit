@@ -1,6 +1,13 @@
+import asyncio
 from abc import ABC, abstractmethod
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable, Optional, Union
+
+from loguru import logger
+
 from midil.event.message import Message
+
+FilterFn = Callable[[Message], Union[Awaitable[bool], bool]]
+ErrorFn = Callable[[Message, Exception], Union[Awaitable[None], None]]
 
 
 class EventSubscriber(ABC):
@@ -99,15 +106,15 @@ class SubscriberMiddleware(ABC):
     Example usage:
 
         class LoggingMiddleware(SubscriberMiddleware):
-            async def __call__(self, call_next, event):
+            async def __call__(self, event: Message, call_next: Callable[[Message], Awaitable[Any]]):
                 print(f"Processing event: {event}")
                 result = await call_next(event)
                 print(f"Finished event: {event}")
                 return result
 
     Args:
-        call_next (Callable[[Any], Awaitable[Any]]): The next handler or middleware in the chain.
-        event (Any): The event object to be processed.
+        event (Message): The event object to be processed.
+        call_next (Callable[[Message], Awaitable[Any]]): The next handler or middleware in the chain.
 
     Returns:
         Any: The result of processing the event, as returned by the handler or next middleware.
@@ -158,9 +165,24 @@ class FunctionSubscriber(EventSubscriber):
         self,
         handler: Callable[..., Any],
         middlewares: Optional[list[SubscriberMiddleware]] = None,
+        filter: Optional[FilterFn] = None,
+        on_error: Optional[ErrorFn] = None,
     ):
         self.handler = handler
         self.middlewares = middlewares or []
+        self._filter = filter
+        self._on_error = on_error
+
+    async def should_handle(self, event: Message) -> bool:
+        """
+        Check if the event should be handled.
+        """
+        if self._filter is None:
+            return True
+        result = self._filter(event)
+        if asyncio.iscoroutine(result):
+            return await result
+        return result  # type: ignore[return-value]
 
     async def handle(self, event: Message) -> None:
         """
@@ -178,3 +200,14 @@ class FunctionSubscriber(EventSubscriber):
 
             next_handler = wrapped
         await next_handler(event)
+
+    async def on_error(self, event: Message, error: Exception) -> None:
+        """
+        Handle an error that occurred while handling the event.
+        """
+        if self._on_error is not None:
+            result = self._on_error(event, error)
+            if asyncio.iscoroutine(result):
+                await result
+        else:
+            logger.error(f"[subscriber] Unhandled error for event {event.id}: {error}")

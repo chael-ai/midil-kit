@@ -1,50 +1,54 @@
-from typing import Any, Dict, Optional, Mapping
+from __future__ import annotations
+
+from typing import Any, Dict, Mapping, Optional
+
 from pydantic_settings import BaseSettings
 
+from midil.event.connector.registry import ConnectorRegistry
 from midil.event.consumer.strategies.pull import PullEventConsumer
 from midil.event.consumer.strategies.push import PushEventConsumer
-
+from midil.event.observability.store import InMemoryTraceStore, TraceStore
+from midil.event.observability.tracing import TracingDispatchHook
+from midil.event.producer.base import EventProducer
 from midil.event.producer.redis import RedisProducer, RedisProducerEventConfig
 from midil.event.producer.sqs import SQSProducer, SQSProducerEventConfig
-
+from midil.event.consumer.http_polling import (
+    HTTPPollingConsumer,
+    HTTPPollingConsumerConfig,
+)
 from midil.event.consumer.sqs import SQSConsumer, SQSConsumerEventConfig
+from midil.event.consumer.stripe import (
+    StripeWebhookConsumer,
+    StripeWebhookConsumerConfig,
+)
 from midil.event.consumer.webhook import WebhookConsumer, WebhookConsumerEventConfig
-
 from midil.event.subscriber.base import (
+    ErrorFn,
     EventSubscriber,
+    FilterFn,
     FunctionSubscriber,
     SubscriberMiddleware,
 )
-from midil.event.producer.base import EventProducer
-
 from midil.event.exceptions import (
     ConsumerNotImplementedError,
     ProducerNotImplementedError,
     TransportNotImplementedError,
 )
-
 from midil.event.config import (
-    EventConfig,
-    ProducerConfig,
     ConsumerConfig,
-    EventProducerType,
+    EventConfig,
     EventConsumerType,
+    EventProducerType,
+    ProducerConfig,
 )
 
 
 class EventBusFactory:
     """
-    Factory class for creating event producers, consumers, and their configurations.
+    Factory for creating producers, consumers, and their configurations.
 
-    Class Attributes:
-        PRODUCER_MAP: Maps producer type strings to their corresponding producer classes.
-        CONSUMER_MAP: Maps consumer type strings to their corresponding consumer classes.
-        CONFIG_MAP: Maps transport types to their configuration classes for both producer and consumer.
-
-    Methods:
-        create_producer: Instantiates an EventProducer based on the provided configuration.
-        create_consumer: Instantiates an EventConsumer (pull or push) based on the provided configuration.
-        create_config: Instantiates a configuration object for a given transport type.
+    Decoupled from EventBus so new connector types can be registered here
+    without touching the bus orchestration logic — Single Responsibility.
     """
 
     _PRODUCER_MAP = {
@@ -54,13 +58,15 @@ class EventBusFactory:
     _CONSUMER_MAP = {
         "sqs": SQSConsumer,
         "webhook": WebhookConsumer,
+        "http_polling": HTTPPollingConsumer,
+        "stripe_webhook": StripeWebhookConsumer,
     }
     _CONFIG_MAP = {
         "sqs": {"producer": SQSProducerEventConfig, "consumer": SQSConsumerEventConfig},
-        "webhook": {
-            "consumer": WebhookConsumerEventConfig,
-        },
+        "webhook": {"consumer": WebhookConsumerEventConfig},
         "redis": {"producer": RedisProducerEventConfig},
+        "http_polling": {"consumer": HTTPPollingConsumerConfig},
+        "stripe_webhook": {"consumer": StripeWebhookConsumerConfig},
     }
 
     @classmethod
@@ -106,7 +112,7 @@ class EventBusFactory:
 
     @classmethod
     def create_config(
-        cls, transport: EventProducerType | EventConsumerType, **kwargs
+        cls, transport: EventProducerType | EventConsumerType, **kwargs: Any
     ) -> BaseSettings:
         """
         Create a configuration object for the specified transport type.
@@ -132,59 +138,55 @@ class EventBusFactory:
 
 class EventBus:
     """
-    The main interface for event-driven communication, providing methods to publish events,
-    subscribe handlers, and manage the lifecycle of event producers and consumers.
+    Central orchestrator for event-driven communication.
 
-    Attributes:
-        producer: The event producer instance, if configured.
-        consumers: Dictionary of named consumer instances, if configured.
+    Manages the lifecycle of all producers and consumers, wires observability
+    automatically, and exposes a ConnectorRegistry for discovery and health
+    reporting. Inject a custom TraceStore to back traces with any storage
+    layer (Redis, DB, etc.); the default is an in-memory bounded deque.
 
-    Methods:
-        publish: Publish an event to the configured producer.
-        subscribe: Register an event subscriber/handler to one or all consumers.
-        subscriber: Decorator to register a function as an event subscriber.
-        start: Start all event consumers.
-        stop: Stop all event consumers and close the producer.
+    Usage:
+        bus = EventBus()
+        bus.subscribe(OrderHandler())
+        async with lifespan(app):
+            await bus.start()
     """
 
     def __init__(
         self,
         config: Optional[EventConfig] = None,
-    ):
-        """
-        Initialize the EventBus with the given configuration.
-
-        Args:
-            config: An EventBusConfig instance specifying producer and/or consumer configurations.
-        """
+        trace_store: Optional[TraceStore] = None,
+    ) -> None:
         if config is None:
-            from midil.settings import (
-                list_available_consumers,
-                get_consumer_event_settings,
-                get_producer_event_settings,
-                list_available_producers,
-            )
+            config = self._config_from_settings()
 
-            consumers = list_available_consumers()
-            producers = list_available_producers()
-            config = EventConfig(
-                consumers={
-                    name: get_consumer_event_settings(name) for name in consumers.keys()
-                },
-                producers={
-                    name: get_producer_event_settings(name) for name in producers.keys()
-                },
-            )
+        self._registry = ConnectorRegistry()
+        self._trace_store: TraceStore = trace_store or InMemoryTraceStore()
 
         self.producers: Mapping[str, EventProducer] = {}
         if config.producers:
             for name, producer_config in config.producers.items():
-                self.producers[name] = EventBusFactory.create_producer(producer_config)
+                producer = EventBusFactory.create_producer(producer_config)
+                self.producers[name] = producer  # type: ignore[index]
+                self._registry.register(producer, name=name)
 
         self.consumers: Mapping[str, PullEventConsumer | PushEventConsumer] = {}
         if config.consumers:
             for name, consumer_config in config.consumers.items():
-                self.consumers[name] = EventBusFactory.create_consumer(consumer_config)
+                consumer = EventBusFactory.create_consumer(consumer_config)
+                consumer.add_hook(TracingDispatchHook(self._trace_store))
+                self.consumers[name] = consumer  # type: ignore[index]
+                self._registry.register(consumer, name=name)
+
+    @property
+    def registry(self) -> ConnectorRegistry:
+        """All active connectors, queryable by name or direction."""
+        return self._registry
+
+    @property
+    def traces(self) -> TraceStore:
+        """Live trace store — the data source for the future dashboard."""
+        return self._trace_store
 
     async def publish(
         self,
@@ -209,9 +211,9 @@ class EventBus:
 
         if target:
             if target not in self.producers:
-                available_producers = list(self.producers.keys())
                 raise ValueError(
-                    f"Producer '{target}' not found. Available producers: {available_producers}"
+                    f"Producer '{target}' not found. "
+                    f"Available: {list(self.producers.keys())}"
                 )
             await self.producers[target].publish(payload, metadata=metadata)
         else:
@@ -235,9 +237,9 @@ class EventBus:
 
         if target:
             if target not in self.consumers:
-                available_consumers = list(self.consumers.keys())
                 raise ValueError(
-                    f"Consumer '{target}' not found. Available consumers: {available_consumers}"
+                    f"Consumer '{target}' not found. "
+                    f"Available: {list(self.consumers.keys())}"
                 )
             self.consumers[target].subscribe(handler)
         else:
@@ -248,24 +250,19 @@ class EventBus:
         self,
         target: Optional[str] = None,
         middlewares: Optional[list[SubscriberMiddleware]] = None,
-        **kwargs,
+        filter: Optional[FilterFn] = None,
+        on_error: Optional[ErrorFn] = None,
     ):
-        """
-        Decorator to register a function as an event subscriber.
-
-        Args:
-            target: Optional name of the specific consumer to subscribe to.
-                         If None, subscribes to all consumers.
-            middlewares: Optional list of SubscriberMiddleware to apply to the subscriber.
-            **kwargs: Additional keyword arguments passed to FunctionSubscriber.
-
-        Returns:
-            A decorator that registers the decorated function as an event subscriber.
-        """
+        """Decorator that registers a plain async function as a subscriber."""
 
         def decorator(func):
             self.subscribe(
-                FunctionSubscriber(func, middlewares=middlewares, **kwargs),
+                FunctionSubscriber(
+                    handler=func,
+                    middlewares=middlewares,
+                    filter=filter,
+                    on_error=on_error,
+                ),
                 target=target,
             )
             return func
@@ -281,16 +278,30 @@ class EventBus:
         """
         if not self.consumers:
             raise ValueError("No consumers configured")
-
-        for _, consumer in self.consumers.items():
-            await consumer.start()
+        for consumer in self.consumers.values():
+            await consumer.connect()
 
     async def stop(self) -> None:
         """
-        Stop all event consumers and close the event producer, performing any necessary cleanup.
+        Stop all event consumers and producers to stop receiving and dispatching events.
         """
-        for _, consumer in self.consumers.items():
-            await consumer.stop()
+        for consumer in self.consumers.values():
+            await consumer.disconnect()
+        for producer in self.producers.values():
+            await producer.disconnect()
 
-        for _, producer in self.producers.items():
-            await producer.close()
+    @staticmethod
+    def _config_from_settings() -> EventConfig:
+        from midil.settings import (
+            get_consumer_event_settings,
+            get_producer_event_settings,
+            list_available_consumers,
+            list_available_producers,
+        )
+
+        consumers = list_available_consumers()
+        producers = list_available_producers()
+        return EventConfig(
+            consumers={name: get_consumer_event_settings(name) for name in consumers},
+            producers={name: get_producer_event_settings(name) for name in producers},
+        )

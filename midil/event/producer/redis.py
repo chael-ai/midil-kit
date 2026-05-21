@@ -16,13 +16,14 @@ class RedisProducerEventConfig(BaseProducerConfig):
 
 
 class RedisProducer(EventProducer):
-    def __init__(self, config: RedisProducerEventConfig):
-        self.config = config
-        self.redis = Redis.from_url(config.url)
+    def __init__(self, config: RedisProducerEventConfig) -> None:
+        super().__init__(config)
+        self._config: RedisProducerEventConfig = config
+        self._redis = Redis.from_url(config.url)
 
     async def publish(self, payload: MessageBody, **kwargs) -> None:
         message = json.dumps(payload)
-        await self.redis.publish(self.config.channel, message)
+        await self._redis.publish(self._config.channel, message)
 
     async def close(self) -> None:
-        return await self.redis.close()
+        await self._redis.close()

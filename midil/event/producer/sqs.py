@@ -18,14 +18,15 @@ class SQSProducerEventConfig(BaseProducerConfig):
 
 
 class SQSProducer(EventProducer):
-    def __init__(self, config: SQSProducerEventConfig):
-        self.session = aioboto3.Session()
-        self.config = config
+    def __init__(self, config: SQSProducerEventConfig) -> None:
+        super().__init__(config)
+        self._config: SQSProducerEventConfig = config
+        self._session = aioboto3.Session()
 
     async def publish(self, payload: MessageBody, **kwargs) -> None:
         message = json.dumps(payload)
-        async with self.session.client("sqs", region_name=self.config.region) as sqs:
-            await sqs.send_message(QueueUrl=self.config.queue_url, MessageBody=message)
+        async with self._session.client("sqs", region_name=self._config.region) as sqs:
+            await sqs.send_message(QueueUrl=self._config.queue_url, MessageBody=message)
 
     async def close(self) -> None:
         pass

@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import Annotated, Optional, Union, TypeAlias, Mapping
 
 from pydantic import BaseModel, Field
+from midil.event.consumer.http_polling import HTTPPollingConsumerConfig
 from midil.event.consumer.sqs import SQSConsumerEventConfig
+from midil.event.consumer.stripe import StripeWebhookConsumerConfig
 from midil.event.consumer.webhook import WebhookConsumerEventConfig
 from midil.event.producer.redis import RedisProducerEventConfig
 from midil.event.producer.sqs import SQSProducerEventConfig
@@ -15,7 +17,12 @@ ProducerConfig = Annotated[
 ]
 
 ConsumerConfig = Annotated[
-    Union[SQSConsumerEventConfig, WebhookConsumerEventConfig],
+    Union[
+        SQSConsumerEventConfig,
+        WebhookConsumerEventConfig,
+        HTTPPollingConsumerConfig,
+        StripeWebhookConsumerConfig,
+    ],
     Field(discriminator="type"),
 ]
 
@@ -43,6 +50,8 @@ class EventConfig(BaseModel):
 class EventConsumerType(str, Enum):
     SQS = "sqs"
     WEBHOOK = "webhook"
+    HTTP_POLLING = "http_polling"
+    STRIPE_WEBHOOK = "stripe_webhook"
 
 
 class EventProducerType(str, Enum):

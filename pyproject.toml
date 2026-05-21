@@ -47,6 +47,7 @@ uvicorn = { version = "^0.29.0", optional = true }
 aioboto3 = { version = "^15.0.0", optional = true }
 redis = { version = "^5.2.1", extras = ["asyncio"], optional = true }
 pymongo = { version = "^4.0.0", extras = ["srv"], optional = true }
+stripe = { version = "^11.0.0", optional = true }
 
 [tool.poetry.extras]
 auth    = ["httpx", "pyjwt", "python-dateutil"]
@@ -55,11 +56,12 @@ web     = ["fastapi", "starlette", "uvicorn"]
 aws     = ["aioboto3"]
 redis   = ["redis"]
 mongodb = ["pymongo"]
+stripe  = ["stripe"]
 full = [
     "httpx", "pyjwt", "python-dateutil",
     "click", "pyfiglet", "cookiecutter", "rich",
     "fastapi", "starlette", "uvicorn",
-    "aioboto3", "redis", "pymongo"
+    "aioboto3", "redis", "pymongo", "stripe"
 ]
 
 [tool.poetry.group.dev.dependencies]
