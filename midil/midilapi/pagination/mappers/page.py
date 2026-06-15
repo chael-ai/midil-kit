@@ -41,7 +41,7 @@ class PageMapper(ABC, Generic[DomainT, SchemaT, PageT]):
         )
 
 
-class DocumentMapper(Generic[DomainT, SchemaT]):
+class DocumentMapper(ABC, Generic[DomainT, SchemaT]):
     """Create a JSON API document for a single domain object."""
 
     def __init__(

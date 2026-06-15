@@ -82,13 +82,13 @@ class AsyncMongoCursorPaginationStrategy(
                         self._payload(documents[0], PaginationDirection.PREV)
                     )
             else:
-                next_cursor = self._encoder.encode(
-                    self._payload(documents[-1], PaginationDirection.NEXT)
-                )
                 if has_extra:
                     prev_cursor = self._encoder.encode(
                         self._payload(documents[0], PaginationDirection.PREV)
                     )
+                next_cursor = self._encoder.encode(
+                    self._payload(documents[-1], PaginationDirection.NEXT)
+                )
 
         return CursorPage(
             items=items,

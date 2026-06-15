@@ -26,8 +26,8 @@ class HMACCursorEncoder(CursorEncoder):
         config: HMACCursorConfig,
     ) -> None:
         self._config = config
-        self._secret_key = config.secretKey.encode()
-        self._expires_in_seconds = config.expiresInSeconds
+        self._secret_key = config.secret_key.encode()
+        self._expires_in_seconds = config.expires_in_seconds
 
     def encode(
         self,
@@ -56,7 +56,7 @@ class HMACCursorEncoder(CursorEncoder):
         cursor: str,
     ) -> CursorPayload:
         try:
-            payload_b64, signature = cursor.split(".")
+            payload_b64, signature = cursor.split(".", 1)
 
         except ValueError:
             raise InvalidCursorError("Malformed cursor.")
