@@ -2,15 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import time
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from threading import Lock
 from typing import Annotated, Any, List, Optional, Set
 
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from midil.event.connector.base import Connector, ConnectorDirection
-from midil.event.connector.health import ConnectorHealth
+
 from midil.event.exceptions import RetryableEventError
 from midil.event.message import Message
 from midil.event.observability.hooks import DispatchHook
@@ -34,7 +33,7 @@ class BaseConsumerConfig(BaseModel):
     ]
 
 
-class EventConsumer(Connector):
+class EventConsumer(ABC):
     """
     Abstract base for all event consumers.
 
@@ -58,19 +57,6 @@ class EventConsumer(Connector):
     @property
     def name(self) -> str:
         return self._config.type
-
-    @property
-    def direction(self) -> ConnectorDirection:
-        return ConnectorDirection.SOURCE
-
-    async def connect(self) -> None:
-        await self.start()
-
-    async def disconnect(self) -> None:
-        await self.stop()
-
-    async def health(self) -> ConnectorHealth:
-        return ConnectorHealth.unknown()
 
     def add_hook(self, hook: DispatchHook) -> None:
         """Attach a DispatchHook to observe this consumer's dispatch lifecycle."""

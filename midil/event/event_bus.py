@@ -4,7 +4,6 @@ from typing import Any, Dict, Mapping, Optional
 
 from pydantic_settings import BaseSettings
 
-from midil.event.connector.registry import ConnectorRegistry
 from midil.event.consumer.strategies.pull import PullEventConsumer
 from midil.event.consumer.strategies.push import PushEventConsumer
 from midil.event.observability.store import InMemoryTraceStore, TraceStore
@@ -12,15 +11,7 @@ from midil.event.observability.tracing import TracingDispatchHook
 from midil.event.producer.base import EventProducer
 from midil.event.producer.redis import RedisProducer, RedisProducerEventConfig
 from midil.event.producer.sqs import SQSProducer, SQSProducerEventConfig
-from midil.event.consumer.http_polling import (
-    HTTPPollingConsumer,
-    HTTPPollingConsumerConfig,
-)
 from midil.event.consumer.sqs import SQSConsumer, SQSConsumerEventConfig
-from midil.event.consumer.stripe import (
-    StripeWebhookConsumer,
-    StripeWebhookConsumerConfig,
-)
 from midil.event.consumer.webhook import WebhookConsumer, WebhookConsumerEventConfig
 from midil.event.subscriber.base import (
     ErrorFn,
@@ -58,15 +49,11 @@ class EventBusFactory:
     _CONSUMER_MAP = {
         "sqs": SQSConsumer,
         "webhook": WebhookConsumer,
-        "http_polling": HTTPPollingConsumer,
-        "stripe_webhook": StripeWebhookConsumer,
     }
     _CONFIG_MAP = {
         "sqs": {"producer": SQSProducerEventConfig, "consumer": SQSConsumerEventConfig},
         "webhook": {"consumer": WebhookConsumerEventConfig},
         "redis": {"producer": RedisProducerEventConfig},
-        "http_polling": {"consumer": HTTPPollingConsumerConfig},
-        "stripe_webhook": {"consumer": StripeWebhookConsumerConfig},
     }
 
     @classmethod
@@ -141,8 +128,7 @@ class EventBus:
     Central orchestrator for event-driven communication.
 
     Manages the lifecycle of all producers and consumers, wires observability
-    automatically, and exposes a ConnectorRegistry for discovery and health
-    reporting. Inject a custom TraceStore to back traces with any storage
+    automatically. Inject a custom TraceStore to back traces with any storage
     layer (Redis, DB, etc.); the default is an in-memory bounded deque.
 
     Usage:
@@ -160,7 +146,6 @@ class EventBus:
         if config is None:
             config = self._config_from_settings()
 
-        self._registry = ConnectorRegistry()
         self._trace_store: TraceStore = trace_store or InMemoryTraceStore()
 
         self.producers: Mapping[str, EventProducer] = {}
@@ -168,7 +153,6 @@ class EventBus:
             for name, producer_config in config.producers.items():
                 producer = EventBusFactory.create_producer(producer_config)
                 self.producers[name] = producer  # type: ignore[index]
-                self._registry.register(producer, name=name)
 
         self.consumers: Mapping[str, PullEventConsumer | PushEventConsumer] = {}
         if config.consumers:
@@ -176,12 +160,6 @@ class EventBus:
                 consumer = EventBusFactory.create_consumer(consumer_config)
                 consumer.add_hook(TracingDispatchHook(self._trace_store))
                 self.consumers[name] = consumer  # type: ignore[index]
-                self._registry.register(consumer, name=name)
-
-    @property
-    def registry(self) -> ConnectorRegistry:
-        """All active connectors, queryable by name or direction."""
-        return self._registry
 
     @property
     def traces(self) -> TraceStore:
@@ -279,16 +257,16 @@ class EventBus:
         if not self.consumers:
             raise ValueError("No consumers configured")
         for consumer in self.consumers.values():
-            await consumer.connect()
+            await consumer.start()
 
     async def stop(self) -> None:
         """
         Stop all event consumers and producers to stop receiving and dispatching events.
         """
         for consumer in self.consumers.values():
-            await consumer.disconnect()
+            await consumer.stop()
         for producer in self.producers.values():
-            await producer.disconnect()
+            await producer.close()
 
     @staticmethod
     def _config_from_settings() -> EventConfig:

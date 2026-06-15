@@ -115,7 +115,7 @@ class GenericExceptionHandler:
 class ExceptionHandlerRegistry:
     """Registry and dispatcher for exception handlers with MRO lookup."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._handlers: Dict[Type[Exception], ExceptionHandler] = {}
 
     def register(self, exc_type: Type[Exception], handler: ExceptionHandler) -> None:

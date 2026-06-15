@@ -3169,8 +3169,8 @@ propcache = ">=0.2.1"
 [extras]
 auth = ["httpx", "pyjwt", "python-dateutil"]
 aws = ["aioboto3"]
-cli = ["click", "cookiecutter", "pyfiglet", "rich"]
-full = ["aioboto3", "click", "cookiecutter", "fastapi", "httpx", "pyfiglet", "pyjwt", "pymongo", "python-dateutil", "redis", "rich", "starlette", "stripe", "uvicorn"]
+cli = ["click", "cookiecutter", "pyfiglet", "pyyaml", "rich"]
+full = ["aioboto3", "click", "cookiecutter", "fastapi", "httpx", "pyfiglet", "pyjwt", "pymongo", "python-dateutil", "pyyaml", "redis", "rich", "starlette", "stripe", "uvicorn"]
 mongodb = ["pymongo"]
 redis = ["redis"]
 stripe = ["stripe"]
@@ -3178,5 +3178,5 @@ web = ["fastapi", "starlette", "uvicorn"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = "^3.12"
-content-hash = "04e7724fcae0e72ffdaee2353a4d82b0572859d3a5515b0aa8501bc4d5e00d60"
+python-versions = ">=3.12,<4.0"
+content-hash = "548b7fc6309e59ceacc2c9a47afc1ab713d6adb7e189d94bcac8ad27a8a0ea0c"

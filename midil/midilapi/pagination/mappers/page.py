@@ -10,6 +10,8 @@ from midil.midilapi.pagination.mappers.resource import (
     SchemaT,
 )
 from midil.midilapi.pagination.models import Page
+from pydantic import BaseModel
+from typing import Mapping, Any
 
 PageT = TypeVar("PageT", bound=Page)
 
@@ -25,7 +27,9 @@ class PageMapper(ABC, Generic[DomainT, SchemaT, PageT]):
     def meta(self, *, page: PageT) -> MetaType:
         return None
 
-    def included(self, *, page: PageT) -> Optional[List[ResourceObject[SchemaT]]]:
+    def included(
+        self, *, page: PageT
+    ) -> Optional[List[ResourceObject[BaseModel | Mapping[str, Any]]]]:
         return None
 
     def map(self, *, page: PageT, url: URL) -> Document[SchemaT]:
@@ -53,7 +57,9 @@ class DocumentMapper(Generic[DomainT, SchemaT]):
     def meta(self, obj: DomainT) -> MetaType:
         ...
 
-    def included(self, obj: DomainT) -> Optional[List[ResourceObject[SchemaT]]]:
+    def included(
+        self, obj: DomainT
+    ) -> Optional[List[ResourceObject[BaseModel | Mapping[str, Any]]]]:
         return None
 
     def map(self, obj: DomainT, url: URL) -> Document[SchemaT]:

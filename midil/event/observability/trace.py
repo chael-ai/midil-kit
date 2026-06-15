@@ -27,7 +27,6 @@ class EventTrace(BaseModel):
 
     trace_id: str = Field(default_factory=lambda: uuid4().hex)
     event_id: str
-    connector: str
     status: TraceStatus
     timestamp: datetime = Field(default_factory=utcnow)
     duration_ms: Optional[float] = Field(

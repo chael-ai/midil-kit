@@ -15,14 +15,13 @@ class DispatchHook:
     about. Multiple hooks may be attached; they are called in order.
     """
 
-    async def on_receive(self, message: Message, connector: str) -> None:
+    async def on_receive(self, message: Message) -> None:
         """Called immediately when a message arrives at the consumer."""
         pass
 
     async def on_complete(
         self,
         message: Message,
-        connector: str,
         duration_ms: float,
     ) -> None:
         """Called after all subscribers handled the message without error."""
@@ -31,12 +30,11 @@ class DispatchHook:
     async def on_failure(
         self,
         message: Message,
-        connector: str,
         error: Exception,
     ) -> None:
         """Called when one or more subscribers raised a non-retryable error."""
         pass
 
-    async def on_retry(self, message: Message, connector: str) -> None:
+    async def on_retry(self, message: Message) -> None:
         """Called when the message is being requeued due to a RetryableEventError."""
         pass

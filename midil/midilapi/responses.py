@@ -9,5 +9,5 @@ class JSONAPIResponse(JSONResponse):
         super().__init__(
             content=document.model_dump(exclude_none=True),
             media_type=JSONAPI_CONTENT_TYPE,
-            **kwargs
+            **kwargs,
         )

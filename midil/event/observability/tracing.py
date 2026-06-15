@@ -21,11 +21,10 @@ class TracingDispatchHook(DispatchHook):
     def __init__(self, store: TraceStore) -> None:
         self._store = store
 
-    async def on_receive(self, message: Message, connector: str) -> None:
+    async def on_receive(self, message: Message) -> None:
         await self._store.save(
             EventTrace(
                 event_id=str(message.id),
-                connector=connector,
                 status=TraceStatus.RECEIVED,
             )
         )
@@ -33,13 +32,11 @@ class TracingDispatchHook(DispatchHook):
     async def on_complete(
         self,
         message: Message,
-        connector: str,
         duration_ms: float,
     ) -> None:
         await self._store.save(
             EventTrace(
                 event_id=str(message.id),
-                connector=connector,
                 status=TraceStatus.HANDLED,
                 duration_ms=duration_ms,
             )
@@ -48,23 +45,20 @@ class TracingDispatchHook(DispatchHook):
     async def on_failure(
         self,
         message: Message,
-        connector: str,
         error: Exception,
     ) -> None:
         await self._store.save(
             EventTrace(
                 event_id=str(message.id),
-                connector=connector,
                 status=TraceStatus.FAILED,
                 error=str(error),
             )
         )
 
-    async def on_retry(self, message: Message, connector: str) -> None:
+    async def on_retry(self, message: Message) -> None:
         await self._store.save(
             EventTrace(
                 event_id=str(message.id),
-                connector=connector,
                 status=TraceStatus.RETRIED,
             )
         )
