@@ -6,7 +6,7 @@ define run_checks
 	echo "Running poetry check"; \
 	poetry check || exit_code=$$?;\
 	echo "Running mypy"; \
-	mypy midil --exclude '/\.venv/' || exit_code=$$?; \
+	mypy pymidil --exclude '/\.venv/' || exit_code=$$?; \
 	echo "Running ruff"; \
 	ruff check . || exit_code=$$?; \
 	echo "Running black"; \
@@ -80,7 +80,7 @@ lint:
 
 lint/fix:
 	@$(ACTIVATE) && \
-	black .
+	black . && \
 	ruff check --fix .
 
 format: ## Format code

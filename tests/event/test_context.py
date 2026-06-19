@@ -2,7 +2,7 @@ import pytest
 import contextvars
 from unittest.mock import patch
 
-from midil.event.context import (
+from pymidil.event.context import (
     EventContext,
     get_current_event,
     event_context,

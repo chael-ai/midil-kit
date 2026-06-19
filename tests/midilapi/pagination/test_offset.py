@@ -6,7 +6,7 @@ from __future__ import annotations
 import pytest
 from starlette.datastructures import URL
 
-from midil.midilapi.pagination import OffsetPage, OffsetPageMapper
+from pymidil.midilapi.pagination import OffsetPage, OffsetPageMapper
 
 
 def test_offset_page_uses_size_not_limit():

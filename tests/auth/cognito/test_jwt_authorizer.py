@@ -6,12 +6,12 @@ from unittest.mock import AsyncMock, Mock, patch
 import jwt
 import pytest
 
-from midil.auth.cognito._exceptions import CognitoAuthorizationError
-from midil.auth.cognito.jwt_authorizer import (
+from pymidil.auth.cognito._exceptions import CognitoAuthorizationError
+from pymidil.auth.cognito.jwt_authorizer import (
     CognitoJWTAuthorizer,
     CognitoTokenClaims,
 )
-from midil.auth.interfaces.models import AuthZTokenClaims
+from pymidil.auth.interfaces.models import AuthZTokenClaims
 
 # Mark all async tests in this module to use anyio
 pytestmark = pytest.mark.anyio
@@ -517,7 +517,7 @@ async def test_audience_mismatch(
 
 @pytest.mark.asyncio
 async def test_concurrent_signing_key_fetch() -> None:
-    from midil.auth.cognito.jwt_authorizer import CognitoJWTAuthorizer
+    from pymidil.auth.cognito.jwt_authorizer import CognitoJWTAuthorizer
 
     authorizer: CognitoJWTAuthorizer = CognitoJWTAuthorizer(
         "test-pool", "us-west-2", audience="test-client-id"

@@ -1,13 +1,13 @@
 import pytest
 from unittest.mock import patch
-from midil.settings import (
+from pymidil.settings import (
     get_consumers_by_type,
     get_consumer_event_settings,
     EventSettingsError,
 )
-from midil.event.config import EventConfig, EventConsumerType
-from midil.event.consumer.sqs import SQSConsumerEventConfig
-from midil.event.consumer.webhook import WebhookConsumerEventConfig
+from pymidil.event.config import EventConfig, EventConsumerType
+from pymidil.event.consumer.sqs import SQSConsumerEventConfig
+from pymidil.event.consumer.webhook import WebhookConsumerEventConfig
 
 
 class TestNamedConsumers:

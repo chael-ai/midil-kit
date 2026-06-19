@@ -2,9 +2,9 @@ import pytest
 from unittest.mock import AsyncMock, Mock
 import httpx
 from httpx import URL
-from midil.http_client.client import HttpClient
-from midil.auth.interfaces.models import AuthNHeaders, AuthNToken
-from midil.auth.interfaces.authenticator import AuthNProvider
+from pymidil.http_client.client import HttpClient
+from pymidil.auth.interfaces.models import AuthNHeaders, AuthNToken
+from pymidil.auth.interfaces.authenticator import AuthNProvider
 
 
 pytestmark = pytest.mark.asyncio

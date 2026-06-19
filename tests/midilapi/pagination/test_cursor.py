@@ -10,18 +10,20 @@ from typing import Any, Dict, List
 
 import pytest
 
-from midil.midilapi.pagination.strategies.cursor.config import HMACCursorConfig
-from midil.midilapi.pagination.strategies.cursor.encoders.hmac import HMACCursorEncoder
-from midil.midilapi.pagination.strategies.cursor.enums import PaginationDirection
-from midil.midilapi.pagination.strategies.cursor.exceptions import (
+from pymidil.midilapi.pagination.strategies.cursor.config import HMACCursorConfig
+from pymidil.midilapi.pagination.strategies.cursor.encoders.hmac import (
+    HMACCursorEncoder,
+)
+from pymidil.midilapi.pagination.strategies.cursor.enums import PaginationDirection
+from pymidil.midilapi.pagination.strategies.cursor.exceptions import (
     ExpiredCursorError,
     InvalidCursorError,
 )
-from midil.midilapi.pagination.strategies.cursor.models import CursorPayload
+from pymidil.midilapi.pagination.strategies.cursor.models import CursorPayload
 
 pytest.importorskip("bson", reason="cursor strategy needs the mongodb extra")
 
-from midil.midilapi.pagination import (  # noqa: E402
+from pymidil.midilapi.pagination import (  # noqa: E402
     AsyncMongoCursorPaginationStrategy,
 )
 

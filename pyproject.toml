@@ -1,12 +1,12 @@
 [project]
-name = "midil"
+name = "pymidil"
 version = "3.4.4"
 description = "A Python SDK for backend systems development @midil.io"
 readme = "README.md"
 authors = [
     {name = "Engr. Michael Kofi Armah", email = "michael.armah@midil.io"}
 ]
-keywords = ["midil", "sdk", "infrastructure", "platform"]
+keywords = ["pymidil", "sdk", "infrastructure", "platform"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -40,10 +40,10 @@ full = [
 ]
 
 [project.scripts]
-midil = "midil:cli"
+midil = "pymidil:cli"
 
 [tool.poetry]
-packages = [{ include = "midil" }]
+packages = [{ include = "pymidil" }]
 package-mode = true
 
 [tool.poetry.group.dev.dependencies]

@@ -6,12 +6,12 @@ from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
 from typing import Callable, Awaitable
 
-from midil.midilapi.middleware.auth_middleware import (
+from pymidil.midilapi.middleware.auth_middleware import (
     AuthContext,
     CognitoAuthMiddleware,
 )
-from midil.auth.interfaces.models import AuthZTokenClaims
-from midil.auth.interfaces.authorizer import AuthZProvider
+from pymidil.auth.interfaces.models import AuthZTokenClaims
+from pymidil.auth.interfaces.authorizer import AuthZProvider
 
 
 class TestAuthContext:
