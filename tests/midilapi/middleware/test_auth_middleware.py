@@ -87,7 +87,7 @@ class TestCognitoAuthMiddleware:
             "MIDIL__AUTH": '{"type": "cognito", "user_pool_id": "test-pool-id", "region": "us-east-1", "client_id": "test-client-id"}',
         },
     )
-    @patch("midil.midilapi.middleware.auth_middleware.CognitoJWTAuthorizer")
+    @patch("pymidil.midilapi.middleware.auth_middleware.CognitoJWTAuthorizer")
     async def test_dispatch_success(
         self,
         mock_authorizer_class,
@@ -124,7 +124,7 @@ class TestCognitoAuthMiddleware:
         },
     )
     @pytest.mark.anyio
-    @patch("midil.midilapi.middleware.auth_middleware.CognitoJWTAuthorizer")
+    @patch("pymidil.midilapi.middleware.auth_middleware.CognitoJWTAuthorizer")
     async def test_dispatch_authorization_error(
         self, mock_authorizer_class, auth_middleware, mock_request, mock_call_next
     ) -> None:
@@ -147,7 +147,7 @@ class TestCognitoAuthMiddleware:
             "MIDIL__AUTH": '{"type": "cognito", "user_pool_id": "test-pool-id", "region": "us-east-1", "client_id": "test-client-id"}',
         },
     )
-    @patch("midil.midilapi.middleware.auth_middleware.CognitoJWTAuthorizer")
+    @patch("pymidil.midilapi.middleware.auth_middleware.CognitoJWTAuthorizer")
     async def test_dispatch_empty_environment(
         self,
         mock_authorizer_class,

@@ -26,7 +26,9 @@ class TestNamedConsumers:
             }
         )
 
-        with patch("midil.settings.get_event_settings", return_value=mock_event_config):
+        with patch(
+            "pymidil.settings.get_event_settings", return_value=mock_event_config
+        ):
             # Test getting SQS consumer
             booking_consumer = get_consumer_event_settings("booking_queue")
             assert booking_consumer.type == "sqs"
@@ -50,7 +52,9 @@ class TestNamedConsumers:
             }
         )
 
-        with patch("midil.settings.get_event_settings", return_value=mock_event_config):
+        with patch(
+            "pymidil.settings.get_event_settings", return_value=mock_event_config
+        ):
             with pytest.raises(
                 EventSettingsError, match="Consumer 'nonexistent' not found"
             ):
@@ -72,7 +76,9 @@ class TestNamedConsumers:
             }
         )
 
-        with patch("midil.settings.get_event_settings", return_value=mock_event_config):
+        with patch(
+            "pymidil.settings.get_event_settings", return_value=mock_event_config
+        ):
             sqs_consumers = get_consumers_by_type(EventConsumerType.SQS)
 
             assert len(sqs_consumers) == 2
@@ -97,7 +103,9 @@ class TestNamedConsumers:
             }
         )
 
-        with patch("midil.settings.get_event_settings", return_value=mock_event_config):
+        with patch(
+            "pymidil.settings.get_event_settings", return_value=mock_event_config
+        ):
             webhook_consumers = get_consumers_by_type(EventConsumerType.WEBHOOK)
 
             assert len(webhook_consumers) == 2
@@ -118,7 +126,9 @@ class TestNamedConsumers:
             }
         )
 
-        with patch("midil.settings.get_event_settings", return_value=mock_event_config):
+        with patch(
+            "pymidil.settings.get_event_settings", return_value=mock_event_config
+        ):
             with pytest.raises(
                 EventSettingsError,
                 match="No consumer configurations with type 'EventConsumerType.WEBHOOK'",

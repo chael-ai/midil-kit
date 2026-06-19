@@ -29,7 +29,7 @@ app.include_router(consumer.entrypoint, tags=["webhook"])
 
 if __name__ == "__main__":
     uvicorn.run(
-        "midil.event._examples.webhook_producer:app",
+        "pymidil.event._examples.webhook_producer:app",
         host="0.0.0.0",
         port=8000,
         reload=True,

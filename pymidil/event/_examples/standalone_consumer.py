@@ -62,7 +62,7 @@ app = FastAPI(lifespan=lifespan)
 
 if __name__ == "__main__":
     uvicorn.run(
-        "midil.event._examples.standalone_consumer:app",
+        "pymidil.event._examples.standalone_consumer:app",
         host="0.0.0.0",
         port=8000,
         reload=True,

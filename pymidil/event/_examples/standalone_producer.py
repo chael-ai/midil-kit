@@ -43,7 +43,7 @@ async def produce_event(event: Event):
 
 if __name__ == "__main__":
     uvicorn.run(
-        "midil.event._examples.standalone_producer:app",
+        "pymidil.event._examples.standalone_producer:app",
         host="0.0.0.0",
         port=8001,
         reload=True,

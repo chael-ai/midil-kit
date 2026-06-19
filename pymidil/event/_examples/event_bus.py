@@ -37,5 +37,5 @@ async def handle_checkin_event(event: Dict[str, Any]):
 
 if __name__ == "__main__":
     uvicorn.run(
-        "midil.event._examples.event_bus:app", host="0.0.0.0", port=8000, reload=True
+        "pymidil.event._examples.event_bus:app", host="0.0.0.0", port=8000, reload=True
     )
