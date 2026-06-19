@@ -1,6 +1,6 @@
 [project]
 name = "pymidil"
-version = "3.4.4"
+version = "0.1.0"
 description = "A Python SDK for backend systems development @midil.io"
 readme = "README.md"
 authors = [
