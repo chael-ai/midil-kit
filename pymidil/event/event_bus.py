@@ -6,8 +6,8 @@ from pydantic_settings import BaseSettings
 
 from pymidil.event.consumer.strategies.pull import PullEventConsumer
 from pymidil.event.consumer.strategies.push import PushEventConsumer
-from pymidil.event.observability.store import InMemoryTraceStore, TraceStore
-from pymidil.event.observability.tracing import TracingDispatchHook
+from pymidil.observability.store import InMemoryTraceStore, TraceStore
+from pymidil.observability.dispatch_hook import TracingDispatchHook
 from pymidil.event.producer.base import EventProducer
 from pymidil.event.producer.redis import RedisProducer, RedisProducerEventConfig
 from pymidil.event.producer.sqs import SQSProducer, SQSProducerEventConfig

@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from pymidil.auth.interfaces.models import AuthZTokenClaims
+from pymidil.auth.interfaces.types import AuthZTokenClaims
 
 
 class AuthZProvider(ABC):

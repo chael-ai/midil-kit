@@ -6,12 +6,12 @@ from unittest.mock import AsyncMock, Mock, patch
 import jwt
 import pytest
 
-from pymidil.auth.cognito._exceptions import CognitoAuthorizationError
+from pymidil.auth.cognito.exceptions import CognitoAuthorizationError
 from pymidil.auth.cognito.jwt_authorizer import (
     CognitoJWTAuthorizer,
     CognitoTokenClaims,
 )
-from pymidil.auth.interfaces.models import AuthZTokenClaims
+from pymidil.auth.interfaces.types import AuthZTokenClaims
 
 # Mark all async tests in this module to use anyio
 pytestmark = pytest.mark.anyio

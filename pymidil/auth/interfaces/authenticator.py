@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from pymidil.auth.interfaces.models import AuthNToken, AuthNHeaders
+from pymidil.auth.interfaces.types import AuthNToken, AuthNHeaders
 
 
 class AuthNProvider(ABC):

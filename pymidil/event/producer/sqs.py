@@ -4,7 +4,7 @@ import aioboto3
 from typing import Literal
 import json
 from pydantic import Field
-from pymidil.event.utils import get_region_from_sqs_queue_url
+from pymidil.event.aws import get_region_from_sqs_queue_url
 from pymidil.event.message import MessageBody
 
 

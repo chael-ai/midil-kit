@@ -1,7 +1,7 @@
 from typing import Dict, Optional, Literal, TypeVar, Any
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pymidil.auth.config import AuthConfig
-from pymidil.midilapi.config import MidilApiConfig
+from pymidil.web.config import MidilApiConfig
 from pymidil.logger.config import LoggerConfig
 from pymidil.event.config import (
     EventConfig,
@@ -12,6 +12,30 @@ from pymidil.event.config import (
 )
 from functools import lru_cache
 from pydantic import Field
+
+__all__ = [
+    "MidilSettings",
+    "LoggerSettings",
+    "EventSettings",
+    "ApiSettings",
+    "AuthSettings",
+    "SettingsError",
+    "AuthSettingsError",
+    "EventSettingsError",
+    "ApiSettingsError",
+    "LoggerSettingsError",
+    "get_settings",
+    "get_api_settings",
+    "get_auth_settings",
+    "get_event_settings",
+    "get_consumer_event_settings",
+    "get_producer_event_settings",
+    "get_consumers_by_type",
+    "get_producers_by_type",
+    "list_available_consumers",
+    "list_available_producers",
+    "get_logger_settings",
+]
 
 
 T = TypeVar("T", bound=BaseSettings)

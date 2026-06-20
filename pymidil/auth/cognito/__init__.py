@@ -1,8 +1,8 @@
-from pymidil.auth.cognito.client_credentials_flow import (
+from pymidil.auth.cognito.authenticator import (
     CognitoClientCredentialsAuthenticator,
 )
 from pymidil.auth.cognito.jwt_authorizer import CognitoJWTAuthorizer
-from pymidil.auth.cognito._exceptions import (
+from pymidil.auth.cognito.exceptions import (
     CognitoAuthenticationError,
     CognitoAuthorizationError,
 )

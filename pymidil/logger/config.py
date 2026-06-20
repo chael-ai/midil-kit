@@ -1,6 +1,6 @@
 from typing import Literal
-from pymidil.logger.utils import resolve_hostname
-from pymidil.utils.models import SnakeCaseModel
+from pymidil.logger.hostname import resolve_hostname
+from pymidil.utils.base_models import SnakeCaseModel
 from pydantic import Field
 import uuid
 
