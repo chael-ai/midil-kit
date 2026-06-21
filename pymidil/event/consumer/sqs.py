@@ -12,9 +12,9 @@ from typing import Dict, Any, Optional, Literal, cast
 import json
 from datetime import datetime
 from pymidil.utils.retry import AsyncRetry
-from pymidil.event.aws import get_region_from_sqs_queue_url
 from pymidil.utils.backoff import ExponentialBackoff
 from pymidil.event.message import Message
+from botocore.utils import ArnParser
 
 retry_policy = AsyncRetry(retry_on_exceptions=(ClientError,))
 
@@ -46,11 +46,15 @@ class SQSConsumerEventConfig(PullEventConsumerConfig):
 
     @property
     def region(self) -> str:
-        return get_region_from_sqs_queue_url(self.queue_url)
+        arn_parser = ArnParser()
+        arn = arn_parser.parse(self.queue_url)
+        return arn["region"]
 
     @property
     def dlq_region(self) -> Optional[str]:
-        return get_region_from_sqs_queue_url(self.dlq_url) if self.dlq_url else None
+        arn_parser = ArnParser()
+        arn = arn_parser.parse(self.dlq_url)
+        return arn["region"] if arn else None
 
 
 class SQSConsumer(PullEventConsumer):

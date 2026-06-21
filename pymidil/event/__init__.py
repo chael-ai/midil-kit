@@ -50,6 +50,9 @@ from pymidil.event.exceptions import (
 # Context
 from pymidil.event.context import EventContext, get_current_event, event_context
 
+# Observability extension points
+from pymidil.event.observability import DispatchHook, MessageProtocol
+
 __all__ = [
     # event bus
     "EventBus",
@@ -92,4 +95,7 @@ __all__ = [
     "ConsumerCrashError",
     "ConsumerError",
     "ProducerError",
+    # Observability extension points
+    "DispatchHook",
+    "MessageProtocol",
 ]

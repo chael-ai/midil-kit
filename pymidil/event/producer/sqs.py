@@ -4,8 +4,8 @@ import aioboto3
 from typing import Literal
 import json
 from pydantic import Field
-from pymidil.event.aws import get_region_from_sqs_queue_url
 from pymidil.event.message import MessageBody
+from botocore.utils import ArnParser
 
 
 class SQSProducerEventConfig(BaseProducerConfig):
@@ -14,7 +14,9 @@ class SQSProducerEventConfig(BaseProducerConfig):
 
     @property
     def region(self) -> str:
-        return get_region_from_sqs_queue_url(self.queue_url)
+        arn_parser = ArnParser()
+        arn = arn_parser.parse(self.queue_url)
+        return arn["region"]
 
 
 class SQSProducer(EventProducer):

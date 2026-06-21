@@ -28,7 +28,8 @@ class AWSEventBridgeScheduler:
                         }
                     ]
                 )
-                logger.info(f"EventBridge event emitted: {response}")
+                logger.info("EventBridge event emitted", extra={"response": response})
+
                 return response
         except Exception as e:
             logger.error(f"Failed to put EventBridge event: {e}")

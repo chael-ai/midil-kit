@@ -6,10 +6,9 @@ from pydantic_settings import BaseSettings
 
 from pymidil.event.consumer.strategies.pull import PullEventConsumer
 from pymidil.event.consumer.strategies.push import PushEventConsumer
-from pymidil.observability.store import InMemoryTraceStore, TraceStore
-from pymidil.observability.dispatch_hook import TracingDispatchHook
 from pymidil.event.producer.base import EventProducer
 from pymidil.event.producer.redis import RedisProducer, RedisProducerEventConfig
+from pymidil.event.observability.hooks import DispatchHook
 from pymidil.event.producer.sqs import SQSProducer, SQSProducerEventConfig
 from pymidil.event.consumer.sqs import SQSConsumer, SQSConsumerEventConfig
 from pymidil.event.consumer.webhook import WebhookConsumer, WebhookConsumerEventConfig
@@ -129,9 +128,7 @@ class EventBus:
     """
     Central orchestrator for event-driven communication.
 
-    Manages the lifecycle of all producers and consumers, wires observability
-    automatically. Inject a custom TraceStore to back traces with any storage
-    layer (Redis, DB, etc.); the default is an in-memory bounded deque.
+    Manages the lifecycle of all producers and consumers.
 
     Usage:
         bus = EventBus()
@@ -143,12 +140,9 @@ class EventBus:
     def __init__(
         self,
         config: Optional[EventConfig] = None,
-        trace_store: Optional[TraceStore] = None,
     ) -> None:
         if config is None:
             config = self._config_from_settings()
-
-        self._trace_store: TraceStore = trace_store or InMemoryTraceStore()
 
         self.producers: Mapping[str, EventProducer] = {}
         if config.producers:
@@ -160,13 +154,27 @@ class EventBus:
         if config.consumers:
             for name, consumer_config in config.consumers.items():
                 consumer = EventBusFactory.create_consumer(consumer_config)
-                consumer.add_hook(TracingDispatchHook(self._trace_store))
                 self.consumers[name] = consumer  # type: ignore[index]
 
-    @property
-    def traces(self) -> TraceStore:
-        """Live trace store — the data source for the future dashboard."""
-        return self._trace_store
+    def add_dispatch_hook(
+        self, hook: DispatchHook, target: Optional[str] = None
+    ) -> None:
+        """
+        Add a dispatch hook to a specific consumer or all consumers.
+
+        Args:
+            hook: The dispatch hook to add.
+            target: Optional name of the specific consumer to add the hook to.
+                If None, adds the hook to all consumers.
+        """
+
+        if target:
+            if target not in self.consumers:
+                raise ConsumerError(f"Consumer '{target}' not found")
+            self.consumers[target].add_hook(hook)
+        else:
+            for consumer in self.consumers.values():
+                consumer.add_hook(hook)
 
     async def publish(
         self,

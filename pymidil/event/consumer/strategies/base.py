@@ -8,11 +8,11 @@ from typing import Annotated, Any, List, Optional, Set
 
 from loguru import logger
 from pydantic import BaseModel, Field
-
+from dataclasses import dataclass
 
 from pymidil.event.exceptions import RetryableEventError
 from pymidil.event.message import Message
-from pymidil.observability.hooks import DispatchHook
+from pymidil.event.observability.hooks import DispatchHook
 from pymidil.event.subscriber.base import EventSubscriber
 
 
@@ -31,6 +31,24 @@ class BaseConsumerConfig(BaseModel):
             pattern=r"^[a-zA-Z0-9_-]+$",
         ),
     ]
+
+
+@dataclass(slots=True)
+class SuccessOutcome:
+    duration_ms: float
+
+
+@dataclass(slots=True)
+class RetryOutcome:
+    errors: List[RetryableEventError]
+
+
+@dataclass(slots=True)
+class FailureOutcome:
+    exception_group: ExceptionGroup
+
+
+DispatchOutcome = SuccessOutcome | RetryOutcome | FailureOutcome
 
 
 class EventConsumer(ABC):
@@ -81,45 +99,206 @@ class EventConsumer(ABC):
 
     async def dispatch(self, message: Message) -> None:
         """
-        Dispatch a message to all subscribers, timing the full lifecycle
-        and notifying hooks at each stage.
+        Dispatch a message to all subscribers.
 
-        Flow:
-          1. on_receive hooks
-          2. All subscribers gathered concurrently
-          3. RetryableEventError  →  nack(requeue=True) + on_retry hooks
-          4. Other exceptions     →  ack + on_failure hooks
-          5. Clean run            →  ack + on_complete hooks
+        Lifecycle:
+
+            on_receive
+                  ▼
+            subscribers
+                  ▼
+         determine outcome
+                  ▼
+            hooks + ack/nack
         """
+
         start = time.monotonic()
 
-        await self._notify_hooks("on_receive", message)
-
-        if not self._subscribers:
-            logger.warning(
-                f"[{self.name}] No subscribers registered, skipping event {message.id}"
+        try:
+            await self._safe_notify_hooks(
+                "on_receive",
+                message,
             )
-            return
+
+            if not self._subscribers:
+                logger.warning(
+                    f"No subscribers registered for " f"{self.name} event {message.id}"
+                )
+
+                await self.ack(message)
+                return
+
+            subscriber_results = await self._execute_subscribers(message)
+
+            duration_ms = (time.monotonic() - start) * 1000
+
+            outcome = self._determine_outcome(
+                subscriber_results,
+                duration_ms,
+                message,
+            )
+
+            await self._handle_outcome(
+                outcome,
+                message,
+            )
+
+        except Exception:
+            logger.exception(
+                f"Dispatcher failed unexpectedly for " f"{self.name} event {message.id}"
+            )
+
+            raise
+
+    async def _execute_subscribers(
+        self,
+        message: Message,
+    ) -> dict[str, Any]:
+        """
+        Execute all subscribers concurrently and
+        preserve subscriber identity.
+        """
 
         results = await asyncio.gather(
-            *[subscriber(message) for subscriber in self._subscribers],
+            *(subscriber(message) for subscriber in self._subscribers),
             return_exceptions=True,
         )
 
-        duration_ms = (time.monotonic() - start) * 1000
+        return {
+            self._subscriber_name(subscriber): result
+            for subscriber, result in zip(
+                self._subscribers,
+                results,
+                strict=True,
+            )
+        }
 
-        if any(isinstance(r, RetryableEventError) for r in results):
-            logger.debug(f"[{self.name}] Retryable failure on {message.id}, requeuing")
-            await self._notify_hooks("on_retry", message)
-            return await self.nack(message, requeue=True)
+    def _determine_outcome(
+        self,
+        results: dict[str, Any],
+        duration_ms: float,
+        message: Message,
+    ) -> DispatchOutcome:
+        """
+        Resolve subscriber results into a single
+        dispatch outcome.
+        """
 
-        exceptions = [r for r in results if isinstance(r, Exception)]
+        retryable_errors: List[RetryableEventError] = []
+        exceptions: List[Exception] = []
+
+        for subscriber_name, result in results.items():
+            if isinstance(
+                result,
+                RetryableEventError,
+            ):
+                logger.warning(
+                    f"Subscriber '{subscriber_name}' "
+                    f"requested retry for "
+                    f"{self.name} event {message.id}"
+                )
+                retryable_errors.append(result)
+                continue
+
+            if isinstance(result, Exception):
+                logger.error(
+                    f"Subscriber '{subscriber_name}' "
+                    f"failed for "
+                    f"{self.name} event {message.id}: "
+                    f"{result}"
+                )
+
+                exceptions.append(result)
+
+        if retryable_errors:
+            return RetryOutcome(
+                errors=retryable_errors,
+            )
+
         if exceptions:
-            await self._notify_hooks("on_failure", message, error=exceptions[0])
-        else:
-            await self._notify_hooks("on_complete", message, duration_ms=duration_ms)
+            return FailureOutcome(
+                exception_group=ExceptionGroup(
+                    f"{self.name} event " f"{message.id} failed",
+                    exceptions,
+                )
+            )
 
-        return await self.ack(message)
+        return SuccessOutcome(
+            duration_ms=duration_ms,
+        )
+
+    async def _handle_outcome(
+        self,
+        outcome: DispatchOutcome,
+        message: Message,
+    ) -> None:
+        match outcome:
+            case RetryOutcome(errors=errors):
+                logger.debug(f"{self.name} event " f"{message.id} " f"will be retried")
+
+                await self._safe_notify_hooks(
+                    "on_retry",
+                    message,
+                    errors=errors,
+                )
+
+                await self.nack(
+                    message,
+                    requeue=True,
+                )
+
+            case FailureOutcome(exception_group=group):
+                logger.error(f"{self.name} event " f"{message.id} failed: " f"{group}")
+
+                await self._safe_notify_hooks(
+                    "on_failure",
+                    message,
+                    error=group,
+                )
+
+                await self.ack(message)
+
+            case SuccessOutcome(duration_ms=duration_ms):
+                await self._safe_notify_hooks(
+                    "on_complete",
+                    message,
+                    duration_ms=duration_ms,
+                )
+
+                await self.ack(message)
+
+    async def _safe_notify_hooks(
+        self,
+        event: str,
+        message: Message,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Hook failures should never affect
+        message acknowledgement.
+        """
+
+        try:
+            await self._notify_hooks(
+                event,
+                message,
+                **kwargs,
+            )
+
+        except Exception:
+            logger.exception(
+                f"Hook '{event}' failed for " f"{self.name} event " f"{message.id}"
+            )
+
+    @staticmethod
+    def _subscriber_name(
+        subscriber: Any,
+    ) -> str:
+        return getattr(
+            subscriber,
+            "__qualname__",
+            repr(subscriber),
+        )
 
     async def _notify_hooks(self, stage: str, message: Message, **kwargs: Any) -> None:
         """
