@@ -1,7 +1,7 @@
 import click
-from pymidil.cli.core.scaffolds import scaffold_project
-from pymidil.cli.commands._common import console
-from pymidil.cli.utils import print_logo
+from pymidil.cli.scaffolds import scaffold_project
+from pymidil.cli.commands.console import console
+from pymidil.cli.display import print_logo
 
 
 @click.command("init")

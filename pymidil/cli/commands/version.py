@@ -2,8 +2,8 @@ import click
 from pathlib import Path
 
 from pymidil.version import __version__, __service_version__
-from pymidil.cli.commands._common import console
-from pymidil.cli.utils import print_logo
+from pymidil.cli.commands.console import console
+from pymidil.cli.display import print_logo
 
 
 @click.command("version")

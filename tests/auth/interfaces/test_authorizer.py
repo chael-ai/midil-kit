@@ -3,7 +3,7 @@ from abc import ABC
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock
 
-from pymidil.auth.interfaces.models import AuthZTokenClaims
+from pymidil.auth.interfaces.types import AuthZTokenClaims
 from pymidil.auth.interfaces.authorizer import AuthZProvider
 from typing import Dict, Any
 

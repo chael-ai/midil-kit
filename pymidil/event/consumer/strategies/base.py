@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from pymidil.event.exceptions import RetryableEventError
 from pymidil.event.message import Message
-from pymidil.event.observability.hooks import DispatchHook
+from pymidil.observability.hooks import DispatchHook
 from pymidil.event.subscriber.base import EventSubscriber
 
 

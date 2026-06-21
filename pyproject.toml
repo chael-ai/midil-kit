@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     {name = "Engr. Michael Kofi Armah", email = "michael.armah@midil.io"}
 ]
-keywords = ["pymidil", "sdk", "infrastructure", "platform"]
+keywords = ["midil", "sdk", "infrastructure", "platform"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

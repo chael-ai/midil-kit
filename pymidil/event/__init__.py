@@ -28,7 +28,7 @@ from pymidil.event.subscriber.base import (
     FunctionSubscriber,
     SubscriberMiddleware,
 )
-from pymidil.event.subscriber.middlewares import (
+from pymidil.event.subscriber.middleware import (
     GroupMiddleware,
     RetryMiddleware,
 )

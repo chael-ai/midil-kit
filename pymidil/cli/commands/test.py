@@ -1,7 +1,7 @@
 import click
-from pymidil.cli.core.testing.options import TestOptions
-from pymidil.cli.core.testing.runner import PytestRunner
-from pymidil.cli.commands._common import console
+from pymidil.cli.testing.options import TestOptions
+from pymidil.cli.testing.runner import PytestRunner
+from pymidil.cli.commands.console import console
 
 
 @click.command("test")

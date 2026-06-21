@@ -1,7 +1,7 @@
 import jwt
 from typing import Optional
 from jwt import PyJWKClient, InvalidTokenError, DecodeError, PyJWK
-from pymidil.auth.cognito._exceptions import CognitoAuthorizationError
+from pymidil.auth.cognito.exceptions import CognitoAuthorizationError
 from pymidil.auth.exceptions import AuthorizationError
 import asyncio
 
@@ -10,8 +10,8 @@ from loguru import logger
 from pymidil.auth.interfaces.authorizer import (
     AuthZProvider,
 )
-from pymidil.auth.interfaces.models import AuthZTokenClaims
-from pydantic import Field
+from pymidil.auth.interfaces.types import AuthZTokenClaims
+from pydantic import ConfigDict, Field
 
 
 class CognitoTokenClaims(AuthZTokenClaims):
@@ -34,8 +34,7 @@ class CognitoTokenClaims(AuthZTokenClaims):
         default=None, alias="iat", description="The issued at time of the token"
     )
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class CognitoJWTAuthorizer(AuthZProvider):

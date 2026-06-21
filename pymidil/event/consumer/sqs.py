@@ -12,7 +12,7 @@ from typing import Dict, Any, Optional, Literal, cast
 import json
 from datetime import datetime
 from pymidil.utils.retry import AsyncRetry
-from pymidil.event.utils import get_region_from_sqs_queue_url
+from pymidil.event.aws import get_region_from_sqs_queue_url
 from pymidil.utils.backoff import ExponentialBackoff
 from pymidil.event.message import Message
 

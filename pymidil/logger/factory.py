@@ -1,5 +1,5 @@
 from pymidil.logger.config import LoggerConfig
-from pymidil.logger.handlers.abstracts import LogHandler
+from pymidil.logger.handlers.base import LogHandler
 from loguru import logger
 from typing import TYPE_CHECKING
 

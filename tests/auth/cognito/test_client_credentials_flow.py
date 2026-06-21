@@ -1,5 +1,5 @@
 """
-Tests for midil.auth.cognito.client_credentials_flow
+Tests for midil.auth.cognito.authenticator
 """
 
 import pytest
@@ -8,11 +8,11 @@ import base64
 from unittest.mock import AsyncMock, Mock, patch
 from datetime import datetime, timezone, timedelta
 
-from pymidil.auth.cognito.client_credentials_flow import (
+from pymidil.auth.cognito.authenticator import (
     CognitoClientCredentialsAuthenticator,
 )
-from pymidil.auth.interfaces.models import AuthNToken, AuthNHeaders
-from pymidil.auth.cognito._exceptions import CognitoAuthenticationError
+from pymidil.auth.interfaces.types import AuthNToken, AuthNHeaders
+from pymidil.auth.cognito.exceptions import CognitoAuthenticationError
 from pymidil.auth.interfaces.authenticator import AuthNProvider
 
 

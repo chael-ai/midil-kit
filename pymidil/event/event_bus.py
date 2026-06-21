@@ -6,8 +6,8 @@ from pydantic_settings import BaseSettings
 
 from pymidil.event.consumer.strategies.pull import PullEventConsumer
 from pymidil.event.consumer.strategies.push import PushEventConsumer
-from pymidil.event.observability.store import InMemoryTraceStore, TraceStore
-from pymidil.event.observability.tracing import TracingDispatchHook
+from pymidil.observability.store import InMemoryTraceStore, TraceStore
+from pymidil.observability.dispatch_hook import TracingDispatchHook
 from pymidil.event.producer.base import EventProducer
 from pymidil.event.producer.redis import RedisProducer, RedisProducerEventConfig
 from pymidil.event.producer.sqs import SQSProducer, SQSProducerEventConfig
@@ -21,7 +21,9 @@ from pymidil.event.subscriber.base import (
     SubscriberMiddleware,
 )
 from pymidil.event.exceptions import (
+    ConsumerError,
     ConsumerNotImplementedError,
+    ProducerError,
     ProducerNotImplementedError,
     TransportNotImplementedError,
 )
@@ -185,11 +187,11 @@ class EventBus:
             ValueError: If no producers are configured or if the specified producer is not found.
         """
         if not self.producers:
-            raise ValueError("No producers configured")
+            raise ProducerError("No producers configured")
 
         if target:
             if target not in self.producers:
-                raise ValueError(
+                raise ProducerError(
                     f"Producer '{target}' not found. "
                     f"Available: {list(self.producers.keys())}"
                 )
@@ -211,11 +213,11 @@ class EventBus:
             ValueError: If no consumers are configured or if the specified consumer is not found.
         """
         if not self.consumers:
-            raise ValueError("No consumers configured")
+            raise ConsumerError("No consumers configured")
 
         if target:
             if target not in self.consumers:
-                raise ValueError(
+                raise ConsumerError(
                     f"Consumer '{target}' not found. "
                     f"Available: {list(self.consumers.keys())}"
                 )
@@ -255,7 +257,7 @@ class EventBus:
             ValueError: If no consumers are configured.
         """
         if not self.consumers:
-            raise ValueError("No consumers configured")
+            raise ConsumerError("No consumers configured")
         for consumer in self.consumers.values():
             await consumer.start()
 
@@ -270,16 +272,12 @@ class EventBus:
 
     @staticmethod
     def _config_from_settings() -> EventConfig:
-        from pymidil.settings import (
-            get_consumer_event_settings,
-            get_producer_event_settings,
-            list_available_consumers,
-            list_available_producers,
-        )
+        from pymidil.settings import get_settings
 
-        consumers = list_available_consumers()
-        producers = list_available_producers()
+        settings = get_settings()
+        consumers = settings.list_consumers()
+        producers = settings.list_producers()
         return EventConfig(
-            consumers={name: get_consumer_event_settings(name) for name in consumers},
-            producers={name: get_producer_event_settings(name) for name in producers},
+            consumers={name: settings.get_consumer(name) for name in consumers},
+            producers={name: settings.get_producer(name) for name in producers},
         )

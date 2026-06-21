@@ -1,7 +1,13 @@
-from typing import Dict, Optional, Literal, TypeVar, Any
+from typing import Dict, Optional, Literal, Any
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pymidil.exceptions import (
+    SettingsError,
+    AuthSettingsError,
+    EventSettingsError,
+    ApiSettingsError,
+)
 from pymidil.auth.config import AuthConfig
-from pymidil.midilapi.config import MidilApiConfig
+from pymidil.web.config import MidilApiConfig
 from pymidil.logger.config import LoggerConfig
 from pymidil.event.config import (
     EventConfig,
@@ -13,8 +19,16 @@ from pymidil.event.config import (
 from functools import lru_cache
 from pydantic import Field
 
-
-T = TypeVar("T", bound=BaseSettings)
+__all__ = [
+    "MidilSettings",
+    "LoggerSettings",
+    "ApiSettings",
+    "SettingsError",
+    "AuthSettingsError",
+    "EventSettingsError",
+    "ApiSettingsError",
+    "get_settings",
+]
 
 
 class _BaseSettings(BaseSettings):
@@ -32,16 +46,8 @@ class LoggerSettings(_BaseSettings):
     logger: LoggerConfig = Field(default=LoggerConfig())
 
 
-class EventSettings(_BaseSettings):
-    event: EventConfig
-
-
 class ApiSettings(_BaseSettings):
     api: MidilApiConfig = Field(default=MidilApiConfig())
-
-
-class AuthSettings(_BaseSettings):
-    auth: AuthConfig
 
 
 class MidilSettings(_BaseSettings):
@@ -51,259 +57,134 @@ class MidilSettings(_BaseSettings):
     logger: Optional[LoggerConfig] = None
 
     def model_post_init(self, __context: Any) -> None:
-        """Post-initialization validation of settings."""
         if self.event and self.event.consumers is None and self.event.producers is None:
             raise EventSettingsError(
                 "Event settings are configured but contain no producers or consumers. "
                 "Ensure at least one producer or consumer is defined in MIDIL__EVENT."
             )
 
+    def get_api(self) -> MidilApiConfig:
+        if self.api is None:
+            raise ApiSettingsError(
+                "API settings are not configured. Ensure MIDIL__API is set in the .env file."
+            )
+        return self.api
 
-class SettingsError(Exception):
-    """Base exception for settings-related errors."""
+    def get_auth(self, expected: Literal["cognito"]) -> AuthConfig:
+        if self.auth is None:
+            raise AuthSettingsError(
+                f"Authentication settings for '{expected}' not configured. "
+                "Ensure MIDIL__AUTH is set in the .env file."
+            )
+        if self.auth.type != expected:
+            raise AuthSettingsError(
+                f"Expected auth type '{expected}', got '{self.auth.type}'. "
+                "Check MIDIL__AUTH__TYPE in the .env file."
+            )
+        return self.auth
 
-    ...
+    def get_event(self) -> EventConfig:
+        if self.event is None:
+            raise EventSettingsError(
+                "Event settings are not configured. Ensure MIDIL__EVENT is set in the .env file."
+            )
+        return self.event
 
+    def get_logger(self) -> LoggerConfig:
+        if self.logger is None:
+            return LoggerConfig()
+        return self.logger
 
-class AuthSettingsError(SettingsError):
-    """Exception for authentication settings errors."""
+    def get_consumer(self, name: str) -> ConsumerConfig:
+        name = name.lower()
+        consumers = self.get_event().consumers
+        if consumers is None:
+            raise EventSettingsError(
+                "No consumer configurations found. Ensure MIDIL__EVENT__CONSUMERS is set."
+            )
+        try:
+            return consumers[name]
+        except KeyError:
+            available = list(consumers.keys())
+            raise EventSettingsError(
+                f"Consumer '{name}' not found. Available consumers: {available}. "
+                "Check MIDIL__EVENT__CONSUMERS in the .env file."
+            )
 
-    ...
+    def get_producer(self, name: str) -> ProducerConfig:
+        name = name.lower()
+        producers = self.get_event().producers
+        if producers is None:
+            raise EventSettingsError(
+                "No producer configurations found. Ensure MIDIL__EVENT__PRODUCERS is set."
+            )
+        try:
+            return producers[name]
+        except KeyError:
+            available = list(producers.keys())
+            raise EventSettingsError(
+                f"Producer '{name}' not found. Available producers: {available}. "
+                "Check MIDIL__EVENT__PRODUCERS in the .env file."
+            )
 
+    def get_consumers_by_type(
+        self, type: EventConsumerType
+    ) -> Dict[str, ConsumerConfig]:
+        consumers = self.get_event().consumers
+        if consumers is None:
+            raise EventSettingsError(
+                "No consumer configurations found. Ensure MIDIL__EVENT__CONSUMERS is set."
+            )
+        filtered = {
+            name: consumer
+            for name, consumer in consumers.items()
+            if consumer.type == type.value
+        }
+        if not filtered:
+            raise EventSettingsError(
+                f"No consumer configurations with type '{type}'. Available types: "
+                f"{[c.type for c in consumers.values()]}. Check MIDIL__EVENT__CONSUMERS."
+            )
+        return filtered
 
-class EventSettingsError(SettingsError):
-    """Exception for event settings errors."""
+    def get_producers_by_type(
+        self, type: EventProducerType
+    ) -> Dict[str, ProducerConfig]:
+        producers = self.get_event().producers
+        if producers is None:
+            raise EventSettingsError(
+                "No producer configurations found. Ensure MIDIL__EVENT__PRODUCERS is set."
+            )
+        filtered = {
+            name: producer
+            for name, producer in producers.items()
+            if producer.type == type.value
+        }
+        if not filtered:
+            raise EventSettingsError(
+                f"No producer configurations with type '{type}'. Available types: "
+                f"{[p.type for p in producers.values()]}. Check MIDIL__EVENT__PRODUCERS."
+            )
+        return filtered
 
-    ...
+    def list_consumers(self) -> Dict[str, str]:
+        consumers = self.get_event().consumers
+        return (
+            {name: consumer.type for name, consumer in consumers.items()}
+            if consumers
+            else {}
+        )
 
-
-class ApiSettingsError(SettingsError):
-    """Exception for API settings errors."""
-
-    ...
-
-
-class LoggerSettingsError(SettingsError):
-    """Exception for logger settings errors."""
-
-    ...
+    def list_producers(self) -> Dict[str, str]:
+        producers = self.get_event().producers
+        return (
+            {name: producer.type for name, producer in producers.items()}
+            if producers
+            else {}
+        )
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> MidilSettings:
     """Get the singleton MidilSettings instance, cached for performance."""
-    settings = MidilSettings()
-    return settings
-
-
-def get_api_settings() -> MidilApiConfig:
-    """Get API settings, raising an error if not configured."""
-    settings = get_settings()
-    if settings.api is None:
-        raise ApiSettingsError(
-            "API settings are not configured. Ensure MIDIL__API is set in the .env file."
-        )
-    return settings.api
-
-
-def get_event_settings() -> EventConfig:
-    """Get event settings, raising an error if not configured."""
-    settings = get_settings()
-    if settings.event is None:
-        raise EventSettingsError(
-            "Event settings are not configured. Ensure MIDIL__EVENT is set in the .env file."
-        )
-    return settings.event
-
-
-def get_auth_settings(expected: Literal["cognito"]) -> AuthConfig:
-    """
-    Get and validate authentication settings by type.
-
-    Args:
-        expected: The expected authentication type (e.g., "cognito").
-
-    Raises:
-        AuthSettingsError: If auth settings are missing or the type doesn't match.
-
-    Example:
-        >>> settings = get_auth_settings("cognito")
-    """
-    settings = get_settings()
-    if settings.auth is None:
-        raise AuthSettingsError(
-            f"Authentication settings for '{expected}' not configured. "
-            "Ensure MIDIL__AUTH is set in the .env file."
-        )
-    if settings.auth.type != expected:
-        raise AuthSettingsError(
-            f"Expected auth type '{expected}', got '{settings.auth.type}'. "
-            "Check MIDIL__AUTH__TYPE in the .env file."
-        )
-    return settings.auth
-
-
-def get_consumer_event_settings(name: str) -> ConsumerConfig:
-    """
-    Get consumer configuration by name.
-
-    Args:
-        name: The name of the consumer configuration.
-
-    Raises:
-        EventSettingsError: If the consumer is not found.
-
-    Example:
-        >>> consumer = get_consumer_event_settings("sqs_consumer")
-    """
-    name = name.lower()
-    consumers = get_event_settings().consumers
-    if consumers is None:
-        raise EventSettingsError(
-            "No consumer configurations found. Ensure MIDIL__EVENT__CONSUMERS is set."
-        )
-    try:
-        return consumers[name]
-    except KeyError:
-        available = list(consumers.keys())
-        raise EventSettingsError(
-            f"Consumer '{name}' not found. Available consumers: {available}. "
-            "Check MIDIL__EVENT__CONSUMERS in the .env file."
-        )
-
-
-def get_producer_event_settings(name: str) -> ProducerConfig:
-    """
-    Get producer configuration by name.
-
-    Args:
-        name: The name of the producer configuration.
-
-    Raises:
-        EventSettingsError: If the producer is not found.
-
-    Example:
-        >>> producer = get_producer_event_settings("sqs_producer")
-    """
-    name = name.lower()
-    producers = get_event_settings().producers
-    if producers is None:
-        raise EventSettingsError(
-            "No producer configurations found. Ensure MIDIL__EVENT__PRODUCERS is set."
-        )
-    try:
-        return producers[name]
-    except KeyError:
-        available = list(producers.keys())
-        raise EventSettingsError(
-            f"Producer '{name}' not found. Available producers: {available}. "
-            "Check MIDIL__EVENT__PRODUCERS in the .env file."
-        )
-
-
-def get_consumers_by_type(type: EventConsumerType) -> Dict[str, ConsumerConfig]:
-    """
-    Get all consumer configurations of a specific type.
-
-    Args:
-        type: The consumer type (e.g., EventConsumerType.SQS).
-
-    Raises:
-        EventSettingsError: If no consumers of the specified type are found.
-
-    Example:
-        >>> sqs_consumers = get_consumers_by_type(EventConsumerType.SQS)
-    """
-    consumers = get_event_settings().consumers
-    if consumers is None:
-        raise EventSettingsError(
-            "No consumer configurations found. Ensure MIDIL__EVENT__CONSUMERS is set."
-        )
-    filtered = {
-        name: consumer
-        for name, consumer in consumers.items()
-        if consumer.type == type.value
-    }
-    if not filtered:
-        raise EventSettingsError(
-            f"No consumer configurations with type '{type}'. Available types: "
-            f"{[c.type for c in consumers.values()]}. Check MIDIL__EVENT__CONSUMERS."
-        )
-    return filtered
-
-
-def get_producers_by_type(type: EventProducerType) -> Dict[str, ProducerConfig]:
-    """
-    Get all producer configurations of a specific type.
-
-    Args:
-        type: The producer type (e.g., EventProducerType.SQS).
-
-    Raises:
-        EventSettingsError: If no producers of the specified type are found.
-
-    Example:
-        >>> sqs_producers = get_producers_by_type(EventProducerType.SQS)
-    """
-    producers = get_event_settings().producers
-    if producers is None:
-        raise EventSettingsError(
-            "No producer configurations found. Ensure MIDIL__EVENT__PRODUCERS is set."
-        )
-    filtered = {
-        name: producer
-        for name, producer in producers.items()
-        if producer.type == type.value
-    }
-    if not filtered:
-        raise EventSettingsError(
-            f"No producer configurations with type '{type}'. Available types: "
-            f"{[p.type for p in producers.values()]}. Check MIDIL__EVENT__PRODUCERS."
-        )
-    return filtered
-
-
-def list_available_consumers() -> Dict[str, str]:
-    """
-    List all available consumer names and their types for debugging.
-
-    Returns:
-        A dictionary mapping consumer names to their types.
-
-    Example:
-        >>> consumers = list_available_consumers()
-        >>> print(consumers)  # {'sqs_consumer': 'sqs', 'webhook_consumer': 'webhook'}
-    """
-    consumers = get_event_settings().consumers
-    return (
-        {name: consumer.type for name, consumer in consumers.items()}
-        if consumers
-        else {}
-    )
-
-
-def list_available_producers() -> Dict[str, str]:
-    """
-    List all available producer names and their types for debugging.
-
-    Returns:
-        A dictionary mapping producer names to their types.
-
-    Example:
-        >>> producers = list_available_producers()
-        >>> print(producers)  # {'sqs_producer': 'sqs', 'redis_producer': 'redis'}
-    """
-    producers = get_event_settings().producers
-    return (
-        {name: producer.type for name, producer in producers.items()}
-        if producers
-        else {}
-    )
-
-
-def get_logger_settings() -> LoggerConfig:
-    """Get logger settings, raising an error if not configured."""
-    settings = get_settings()
-    if settings.logger is None:
-        return LoggerConfig()
-    return settings.logger
+    return MidilSettings()

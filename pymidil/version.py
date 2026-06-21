@@ -1,4 +1,4 @@
-from pymidil.utils.pyproject import PyProject
+from pymidil.utils.project_meta import PyProject
 
 
 try:

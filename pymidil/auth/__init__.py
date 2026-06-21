@@ -1,9 +1,14 @@
 from pymidil.auth.interfaces.authenticator import AuthNProvider
 from pymidil.auth.interfaces.authorizer import AuthZProvider
-from pymidil.auth.interfaces.models import (
+from pymidil.auth.interfaces.types import (
     AuthNToken,
     AuthNHeaders,
     AuthZTokenClaims,
+)
+from pymidil.auth.exceptions import (
+    BaseAuthError,
+    AuthenticationError,
+    AuthorizationError,
 )
 
 __all__ = [
@@ -12,4 +17,7 @@ __all__ = [
     "AuthNToken",
     "AuthNHeaders",
     "AuthZTokenClaims",
+    "BaseAuthError",
+    "AuthenticationError",
+    "AuthorizationError",
 ]
