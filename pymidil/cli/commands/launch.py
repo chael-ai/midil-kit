@@ -1,4 +1,3 @@
-# midil/cli/commands/launch.py
 import click
 from pymidil.cli.launchers.uvicorn import UvicornLauncher
 from pymidil.cli.display import print_logo

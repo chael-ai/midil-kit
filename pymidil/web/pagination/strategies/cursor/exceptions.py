@@ -1,10 +1,3 @@
-class CursorError(Exception):
-    """Base cursor exception."""
+from pymidil.exceptions import CursorError, InvalidCursorError, ExpiredCursorError
 
-
-class InvalidCursorError(CursorError):
-    """Raised when cursor is malformed."""
-
-
-class ExpiredCursorError(CursorError):
-    """Raised when cursor is expired."""
+__all__ = ["CursorError", "InvalidCursorError", "ExpiredCursorError"]

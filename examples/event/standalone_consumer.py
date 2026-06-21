@@ -5,7 +5,7 @@ import uvicorn
 from typing import Dict, Any
 from pymidil.event.subscriber.base import FunctionSubscriber
 from loguru import logger
-from pymidil.settings import get_consumer_event_settings
+from pymidil.settings import get_settings
 
 
 # Load config from environment variables or .env file (recommended for production):
@@ -19,7 +19,7 @@ from pymidil.settings import get_consumer_event_settings
 #   MIDIL__EVENT__CONSUMERS__BOOKING__WAIT_TIME_SECONDS=20
 #   MIDIL__EVENT__CONSUMERS__BOOKING__POLL_INTERVAL=0.1
 #   MIDIL__EVENT__CONSUMERS__BOOKING__MAX_CONCURRENT_MESSAGES=10
-# Then use: consumer_config = get_consumer_event_settings("main_queue")
+# Then use: consumer_config = get_settings().get_consumer("main_queue")
 
 
 # Alternative: Create config explicitly
@@ -35,7 +35,7 @@ from pymidil.settings import get_consumer_event_settings
 
 
 # Get the consumer configuration by name
-consumer_config = get_consumer_event_settings("booking")
+consumer_config = get_settings().get_consumer("booking")
 
 # Ensure the config is of the correct type (SQSConsumerEventConfig)
 if not isinstance(consumer_config, SQSConsumerEventConfig):

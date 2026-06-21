@@ -1,31 +1,33 @@
+from typing import Any
 from fastapi import FastAPI
-from fastapi.openapi.utils import get_openapi
-from typing import Any, Dict
 from pymidil.web.exceptions import register_jsonapi_exception_handlers
 from pymidil.web.responses import JSONAPIResponse
-from pymidil.web.openapi import _update_openapi_jsonapi_media_types
+from pymidil.exceptions import CursorError, InvalidCursorError, ExpiredCursorError
 
 
 class MidilAPI(FastAPI):
     """
-    FastAPI subclass that globally sets JSON:API media types in OpenAPI schema.
+    FastAPI subclass with midil conventions pre-wired.
+
+    Differences from plain FastAPI:
+    - Default response class is JSONAPIResponse (sets JSON:API content-type)
+    - JSON:API exception handlers are registered automatically
+
+    Usage:
+        app = MidilAPI(title="My Service", version="1.0.0")
     """
 
-    def openapi(self) -> Dict[str, Any]:
-        if self.openapi_schema:
-            return self.openapi_schema
-
-        openapi_schema = get_openapi(
-            title=self.title,
-            version=self.version,
-            routes=self.routes,
-            description=self.description,
-        )
-
-        _update_openapi_jsonapi_media_types(openapi_schema)
-
-        self.openapi_schema = openapi_schema
-        return self.openapi_schema
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("default_response_class", JSONAPIResponse)
+        super().__init__(**kwargs)
+        register_jsonapi_exception_handlers(self)
 
 
-__all__ = ["MidilAPI", "register_jsonapi_exception_handlers", "JSONAPIResponse"]
+__all__ = [
+    "MidilAPI",
+    "register_jsonapi_exception_handlers",
+    "JSONAPIResponse",
+    "CursorError",
+    "InvalidCursorError",
+    "ExpiredCursorError",
+]

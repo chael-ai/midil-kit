@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import uvicorn
 from pydantic import BaseModel, Field
-from pymidil.settings import get_producer_event_settings
+from pymidil.settings import get_settings
 
 
 # Create config explicitly
@@ -11,7 +11,7 @@ from pymidil.settings import get_producer_event_settings
 # producer = SQSProducer(config)
 
 # Alternative: Create config from environment variables
-producer_config = get_producer_event_settings("booking")
+producer_config = get_settings().get_producer("booking")
 
 if not isinstance(producer_config, SQSProducerEventConfig):
     raise TypeError(

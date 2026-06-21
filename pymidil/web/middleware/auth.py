@@ -7,7 +7,7 @@ from pymidil.auth.cognito.jwt_authorizer import CognitoJWTAuthorizer
 from starlette.exceptions import HTTPException
 from starlette.responses import Response
 from pymidil.auth.exceptions import AuthorizationError
-from pymidil.settings import get_auth_settings
+from pymidil.settings import get_settings
 
 
 class AuthContext:
@@ -178,7 +178,7 @@ class CognitoAuthMiddleware(BaseAuthMiddleware):
     """
 
     async def authorizer(self, request: Request) -> AuthZProvider:
-        cognito_settings = get_auth_settings("cognito")
+        cognito_settings = get_settings().get_auth("cognito")
         return CognitoJWTAuthorizer(
             user_pool_id=cognito_settings.user_pool_id, region=cognito_settings.region
         )

@@ -1,16 +1,3 @@
-class BaseAuthError(Exception):
-    """Base exception for all authentication and authorization errors."""
+from pymidil.exceptions import BaseAuthError, AuthenticationError, AuthorizationError
 
-    ...
-
-
-class AuthenticationError(BaseAuthError):
-    """Exception raised when authentication fails."""
-
-    ...
-
-
-class AuthorizationError(BaseAuthError):
-    """Exception raised when authorization fails."""
-
-    ...
+__all__ = ["BaseAuthError", "AuthenticationError", "AuthorizationError"]

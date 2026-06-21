@@ -5,6 +5,11 @@ from pymidil.auth.interfaces.types import (
     AuthNHeaders,
     AuthZTokenClaims,
 )
+from pymidil.auth.exceptions import (
+    BaseAuthError,
+    AuthenticationError,
+    AuthorizationError,
+)
 
 __all__ = [
     "AuthNProvider",
@@ -12,4 +17,7 @@ __all__ = [
     "AuthNToken",
     "AuthNHeaders",
     "AuthZTokenClaims",
+    "BaseAuthError",
+    "AuthenticationError",
+    "AuthorizationError",
 ]
