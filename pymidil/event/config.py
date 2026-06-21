@@ -46,8 +46,6 @@ class EventConfig(BaseModel):
 class EventConsumerType(str, Enum):
     SQS = "sqs"
     WEBHOOK = "webhook"
-    HTTP_POLLING = "http_polling"
-    STRIPE_WEBHOOK = "stripe_webhook"
 
 
 class EventProducerType(str, Enum):
