@@ -14,6 +14,7 @@ from pymidil.event.exceptions import RetryableEventError
 from pymidil.event.message import Message
 from pymidil.event.observability.hooks import DispatchHook
 from pymidil.event.subscriber.base import EventSubscriber
+from pymidil.event.tracing import continue_trace, trace_scope
 
 
 class ConsumerMessage(Message):
@@ -98,6 +99,16 @@ class EventConsumer(ABC):
             self._subscribers.discard(subscriber)
 
     async def dispatch(self, message: Message) -> None:
+        """Continue the incoming trace, then run the dispatch lifecycle (A1).
+
+        The trace is extracted from ``message.metadata`` and bound as a child span
+        for the whole lifecycle, so subscribers and dispatch hooks observe a
+        coherent, correlated trace across broker hops.
+        """
+        with trace_scope(continue_trace(getattr(message, "metadata", {}) or {})):
+            await self._dispatch(message)
+
+    async def _dispatch(self, message: Message) -> None:
         """
         Dispatch a message to all subscribers.
 

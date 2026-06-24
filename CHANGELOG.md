@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Features
+
+- Event/Tracing (A1): W3C trace-context propagation via `Message.metadata`.
+  Producers inject the current trace on publish (SQS as message attributes, Redis
+  via a wire envelope); consumers continue it as a child span across the dispatch
+  lifecycle. New: `TraceContext`, `TraceContextPropagator`, `trace_scope`,
+  `current_trace`, `continue_trace`, `inject_current`.
+- Event/Telemetry (A2): `TelemetryDispatchHook` emits a `TelemetryEnvelope` at
+  each dispatch outcome (complete→success, failure→failed, retry→retrying) to a
+  pluggable `TelemetrySink` (`StdoutTelemetrySink`, `HttpTelemetrySink`,
+  `ProducerTelemetrySink`, `NullTelemetrySink`). One-call wiring via
+  `attach_telemetry(bus)` / `TelemetrySettings` (env prefix `MIDIL_TELEMETRY_`).
+  Envelope matches the Midil Observatory ingestion contract.
+
 ## v0.1.0 (2026-06-21)
 
 ### Features

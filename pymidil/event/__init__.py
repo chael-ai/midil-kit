@@ -50,8 +50,27 @@ from pymidil.event.exceptions import (
 # Context
 from pymidil.event.context import EventContext, get_current_event, event_context
 
-# Observability extension points
-from pymidil.event.observability import DispatchHook, MessageProtocol
+# Tracing (A1)
+from pymidil.event.tracing import (
+    TraceContext,
+    TraceContextPropagator,
+    continue_trace,
+    current_trace,
+    inject_current,
+    trace_scope,
+)
+
+# Observability extension points + telemetry (A2)
+from pymidil.event.observability import (
+    DispatchHook,
+    EventStatus,
+    MessageProtocol,
+    TelemetryDispatchHook,
+    TelemetryEnvelope,
+    TelemetrySettings,
+    TelemetrySink,
+    attach_telemetry,
+)
 
 __all__ = [
     # event bus
@@ -84,6 +103,13 @@ __all__ = [
     "EventContext",
     "get_current_event",
     "event_context",
+    # Tracing (A1)
+    "TraceContext",
+    "TraceContextPropagator",
+    "continue_trace",
+    "current_trace",
+    "inject_current",
+    "trace_scope",
     # Exceptions
     "ConsumerNotImplementedError",
     "ProducerNotImplementedError",
@@ -95,7 +121,13 @@ __all__ = [
     "ConsumerCrashError",
     "ConsumerError",
     "ProducerError",
-    # Observability extension points
+    # Observability extension points + telemetry (A2)
     "DispatchHook",
     "MessageProtocol",
+    "TelemetryEnvelope",
+    "EventStatus",
+    "TelemetryDispatchHook",
+    "TelemetrySink",
+    "TelemetrySettings",
+    "attach_telemetry",
 ]
