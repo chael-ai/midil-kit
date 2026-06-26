@@ -50,8 +50,38 @@ from pymidil.event.exceptions import (
 # Context
 from pymidil.event.context import EventContext, get_current_event, event_context
 
-# Observability extension points
-from pymidil.event.observability import DispatchHook, MessageProtocol
+# Tracing (A1)
+from pymidil.event.tracing import (
+    TraceContext,
+    TraceContextPropagator,
+    continue_trace,
+    current_trace,
+    inject_current,
+    trace_scope,
+)
+
+# Observability extension points + telemetry (A2)
+from pymidil.event.observability import (
+    DispatchHook,
+    EventStatus,
+    MessageProtocol,
+    TelemetryDispatchHook,
+    TelemetryEnvelope,
+    TelemetrySettings,
+    TelemetrySink,
+    attach_telemetry,
+)
+
+# Idempotency (A3)
+from pymidil.event.idempotency import (
+    IdempotencyPolicy,
+    IdempotencyStore,
+    InMemoryIdempotencyStore,
+    RedisIdempotencyStore,
+)
+
+# Dead-letter operations (A4)
+from pymidil.event.dlq import DlqRedriver, SQSDlqRedriver
 
 __all__ = [
     # event bus
@@ -84,6 +114,13 @@ __all__ = [
     "EventContext",
     "get_current_event",
     "event_context",
+    # Tracing (A1)
+    "TraceContext",
+    "TraceContextPropagator",
+    "continue_trace",
+    "current_trace",
+    "inject_current",
+    "trace_scope",
     # Exceptions
     "ConsumerNotImplementedError",
     "ProducerNotImplementedError",
@@ -95,7 +132,21 @@ __all__ = [
     "ConsumerCrashError",
     "ConsumerError",
     "ProducerError",
-    # Observability extension points
+    # Observability extension points + telemetry (A2)
     "DispatchHook",
     "MessageProtocol",
+    "TelemetryEnvelope",
+    "EventStatus",
+    "TelemetryDispatchHook",
+    "TelemetrySink",
+    "TelemetrySettings",
+    "attach_telemetry",
+    # Idempotency (A3)
+    "IdempotencyStore",
+    "InMemoryIdempotencyStore",
+    "RedisIdempotencyStore",
+    "IdempotencyPolicy",
+    # Dead-letter operations (A4)
+    "DlqRedriver",
+    "SQSDlqRedriver",
 ]
