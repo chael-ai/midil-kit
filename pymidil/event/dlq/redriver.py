@@ -9,10 +9,28 @@ consumer) to move messages from the DLQ back to the source.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any, Dict, Mapping, Optional
 
 import aioboto3
 from loguru import logger
+
+from pymidil.event.otel import inject_headers, replay_span
+from pymidil.event.producer.sqs import build_sqs_message_attributes
+
+REPLAYED_FROM_HEADER = "replayed_from"
+
+
+def _flatten_attributes(attributes: Mapping[str, Any]) -> Dict[str, str]:
+    """SQS MessageAttributes ({"k": {"StringValue": ...}}) → flat string carrier."""
+    flat: Dict[str, str] = {}
+    for key, value in (attributes or {}).items():
+        if isinstance(value, Mapping):
+            string_value = value.get("StringValue") or value.get("Value")
+            if string_value is not None:
+                flat[str(key)] = str(string_value)
+        elif isinstance(value, str):
+            flat[str(key)] = value
+    return flat
 
 
 class DlqRedriver(ABC):
@@ -41,7 +59,7 @@ class SQSDlqRedriver(DlqRedriver):
 
     async def redrive(self, max_messages: int = 10) -> int:
         count = 0
-        async with self._session.client("sqs", region_name=self._region) as sqs:
+        async with self._session.client("sqs", region_name=self._region) as sqs:  # type: ignore[attr-defined]
             response = await sqs.receive_message(
                 QueueUrl=self._dlq,
                 MaxNumberOfMessages=min(max_messages, 10),
@@ -50,17 +68,32 @@ class SQSDlqRedriver(DlqRedriver):
                 MessageAttributeNames=["All"],
             )
             for message in response.get("Messages", []):
-                params: dict[str, Any] = {
-                    "QueueUrl": self._source,
-                    "MessageBody": message["Body"],
-                }
-                attributes = message.get("MessageAttributes")
-                if attributes:
-                    params["MessageAttributes"] = attributes
-                await sqs.send_message(**params)
-                await sqs.delete_message(
-                    QueueUrl=self._dlq, ReceiptHandle=message["ReceiptHandle"]
+                original_carrier = _flatten_attributes(
+                    message.get("MessageAttributes", {})
                 )
+                # New trace for the replay, linked back to the original span.
+                with replay_span(original_carrier, self._source) as (
+                    _span,
+                    original_sc,
+                ):
+                    carrier: Dict[str, str] = {}
+                    inject_headers(carrier)  # the replay span's (new) trace
+                    if original_sc.is_valid:
+                        carrier[REPLAYED_FROM_HEADER] = format(
+                            original_sc.trace_id, "032x"
+                        )
+
+                    params: Dict[str, Any] = {
+                        "QueueUrl": self._source,
+                        "MessageBody": message["Body"],
+                    }
+                    attributes = build_sqs_message_attributes(carrier)
+                    if attributes:
+                        params["MessageAttributes"] = attributes
+                    await sqs.send_message(**params)
+                    await sqs.delete_message(
+                        QueueUrl=self._dlq, ReceiptHandle=message["ReceiptHandle"]
+                    )
                 count += 1
         if count:
             logger.info(

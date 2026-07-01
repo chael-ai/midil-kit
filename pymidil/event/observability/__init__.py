@@ -4,9 +4,20 @@ from pymidil.event.observability.config import (
     create_sink,
     create_telemetry_hook,
 )
-from pymidil.event.observability.emitter import TelemetryDispatchHook
-from pymidil.event.observability.envelope import EventStatus, TelemetryEnvelope
-from pymidil.event.observability.hooks import DispatchHook
+from pymidil.event.observability.emitter import (
+    TelemetryDispatchHook,
+    TelemetryProducerHook,
+)
+from pymidil.event.observability.envelope import (
+    EventKind,
+    EventStatus,
+    TelemetryEnvelope,
+)
+from pymidil.event.observability.hooks import (
+    DispatchHook,
+    ProducerHook,
+    PublishRecord,
+)
 from pymidil.event.observability.protocols import MessageProtocol
 from pymidil.event.observability.sinks import (
     NullTelemetrySink,
@@ -17,12 +28,16 @@ from pymidil.event.observability.sinks import (
 __all__ = [
     # extension points
     "DispatchHook",
+    "ProducerHook",
+    "PublishRecord",
     "MessageProtocol",
     # telemetry contract
     "TelemetryEnvelope",
     "EventStatus",
+    "EventKind",
     # emitter (A2)
     "TelemetryDispatchHook",
+    "TelemetryProducerHook",
     # sinks
     "TelemetrySink",
     "StdoutTelemetrySink",

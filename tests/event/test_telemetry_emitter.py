@@ -3,7 +3,7 @@ import pytest
 from pymidil.event.message import Message
 from pymidil.event.observability import EventStatus, TelemetryDispatchHook
 from pymidil.event.observability.sinks.base import TelemetrySink
-from pymidil.event.tracing import TraceContext, trace_scope
+from pymidil.event.otel import current_span_ids, get_tracer
 
 pytestmark = pytest.mark.anyio
 
@@ -29,23 +29,26 @@ def _msg(**overrides) -> Message:
 async def test_on_complete_emits_success_with_trace():
     sink = ListSink()
     hook = TelemetryDispatchHook(sink, source_service="booking-svc")
-    child = TraceContext.new_root().child()
 
-    with trace_scope(child):
-        await hook.on_complete(_msg(), "sqs", duration_ms=12.5)
+    # Nested spans so the envelope can be checked for trace/span/parent ids.
+    with get_tracer().start_as_current_span("parent"):
+        _, parent_span_id, _ = current_span_ids()
+        with get_tracer().start_as_current_span("child"):
+            trace_id, span_id, _ = current_span_ids()
+            await hook.on_complete(_msg(), "sqs", duration_ms=12.5)
 
     assert len(sink.events) == 1
     env = sink.events[0]
     assert env.status == EventStatus.SUCCESS
-    assert env.event_id == "EVT-1"
+    assert env.message_id == "EVT-1"
     assert env.event_type == "BookingCreated"
     assert env.broker == "sqs"
     assert env.consumer == "booking-svc"
     assert env.source_service == "booking-svc"
     assert env.processing_time_ms == 12.5
-    assert env.trace_id == child.trace_id
-    assert env.span_id == child.span_id
-    assert env.parent_span_id == child.parent_span_id
+    assert env.trace_id == trace_id
+    assert env.span_id == span_id
+    assert env.parent_span_id == parent_span_id
 
 
 async def test_on_failure_emits_failed_with_reason():

@@ -2,26 +2,39 @@ from __future__ import annotations
 
 import asyncio
 import time
-from abc import abstractmethod, ABC
+from abc import abstractmethod
 from threading import Lock
-from typing import Annotated, Any, List, Optional, Set
+from typing import Annotated, Any, Dict, List, Mapping, Optional, Set
 
 from loguru import logger
 from pydantic import BaseModel, Field
 from dataclasses import dataclass
 
+from pymidil.event.acknowledgement import Acknowledger
 from pymidil.event.exceptions import RetryableEventError
 from pymidil.event.idempotency.policy import IdempotencyPolicy
 from pymidil.event.message import Message
 from pymidil.event.observability.hooks import DispatchHook
+from pymidil.event.otel import consumer_span
 from pymidil.event.subscriber.base import EventSubscriber
-from pymidil.event.tracing import continue_trace, trace_scope
 
 
 class ConsumerMessage(Message):
+    """An inbound message as received from a pull transport.
+
+    Adds the delivery context the base :class:`Message` deliberately omits: the
+    ``ack_handle`` needed to acknowledge/redeliver, and ``metadata`` — the broker's
+    delivery attributes/headers (SQS message+system attributes, etc.). Consumers
+    read trace context out of ``metadata`` via their ``carrier()`` adapter.
+    """
+
     ack_handle: Optional[str] = Field(
         default=None,
         description="Token or handle required to ack/nack/delete this message",
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Broker delivery attributes/headers (e.g. SQS message attributes)",
     )
 
 
@@ -53,19 +66,22 @@ class FailureOutcome:
 DispatchOutcome = SuccessOutcome | RetryOutcome | FailureOutcome
 
 
-class EventConsumer(ABC):
+class EventConsumer(Acknowledger):
     """
     Abstract base for all event consumers.
 
     An EventConsumer is a SOURCE Connector — it receives messages from an
     external backend and dispatches them to registered EventSubscribers.
 
-    The dispatch lifecycle is instrumented through DispatchHooks, which
-    observe each stage (receive → handled/failed/retried) without modifying
-    this class — Open/Closed Principle applied. Attach hooks via add_hook()
-    before calling connect().
+    A consumer *is* an :class:`Acknowledger`: dispatch resolves each outcome into
+    a disposition (``ack`` / ``retry`` / ``dlq``) and calls it on the consumer's
+    acknowledger, which defaults to ``self``. Inject a different one with
+    ``use_acknowledger`` when a disposition (typically ``dlq``) must vary
+    independently of the ingress transport.
 
-    Subclasses implement start(), stop(), ack(), and nack().
+    The dispatch lifecycle is instrumented through DispatchHooks, which observe
+    each stage without modifying this class — Open/Closed Principle. Subclasses
+    implement start(), stop(), and (for pull transports) ack()/retry()/dlq().
     """
 
     def __init__(
@@ -73,12 +89,14 @@ class EventConsumer(ABC):
         config: BaseConsumerConfig,
         *,
         idempotency: Optional[IdempotencyPolicy] = None,
+        acknowledger: Optional[Acknowledger] = None,
     ) -> None:
         self._config = config
         self._subscribers: Set[EventSubscriber] = set()
         self._subscription_lock = Lock()
         self._dispatch_hooks: List[DispatchHook] = []
         self._idempotency: Optional[IdempotencyPolicy] = idempotency
+        self._acknowledger: Acknowledger = acknowledger or self
 
     @property
     def name(self) -> str:
@@ -94,6 +112,20 @@ class EventConsumer(ABC):
     def use_idempotency(self, policy: IdempotencyPolicy) -> None:
         """Enable consumer-level deduplication for every subscriber via ``policy``."""
         self._idempotency = policy
+
+    def use_acknowledger(self, acknowledger: Acknowledger) -> None:
+        """Override how dispositions are applied (e.g. dead-letter to a store)."""
+        self._acknowledger = acknowledger
+
+    def carrier(self, message: Message) -> Mapping[str, str]:
+        """The trace-propagation carrier for this message.
+
+        Transports override this to expose their native header mechanism (SQS
+        message attributes, HTTP headers, …). The default is empty — no
+        propagation — so generic dispatch never reaches into a transport-specific
+        ``Message`` field.
+        """
+        return {}
 
     def _idempotency_key(self, message: Message) -> Optional[str]:
         """The dedup key for this message, or None when idempotency is disabled."""
@@ -122,11 +154,13 @@ class EventConsumer(ABC):
     async def dispatch(self, message: Message) -> None:
         """Continue the incoming trace, then run the dispatch lifecycle (A1).
 
-        The trace is extracted from ``message.metadata`` and bound as a child span
-        for the whole lifecycle, so subscribers and dispatch hooks observe a
-        coherent, correlated trace across broker hops.
+        The trace is extracted from the transport's carrier (``carrier()``) and a
+        child CONSUMER span is bound for the whole lifecycle, so subscribers and
+        dispatch hooks observe a coherent, correlated trace across broker hops.
+        A missing upstream context is flagged as a discontinuity rather than
+        silently rooting a new trace.
         """
-        with trace_scope(continue_trace(getattr(message, "metadata", {}) or {})):
+        with consumer_span(self.carrier(message), self.name):
             await self._dispatch(message)
 
     async def _dispatch(self, message: Message) -> None:
@@ -161,7 +195,7 @@ class EventConsumer(ABC):
                     f"{self.name} duplicate {message.id} (key={key}) short-circuited"
                 )
                 await self._safe_notify_hooks("on_duplicate", message)
-                await self.ack(message)
+                await self._acknowledger.ack(message)
                 return
 
         start = time.monotonic()
@@ -177,7 +211,7 @@ class EventConsumer(ABC):
                     f"No subscribers registered for " f"{self.name} event {message.id}"
                 )
 
-                await self.ack(message)
+                await self._acknowledger.ack(message)
                 return
 
             subscriber_results = await self._execute_subscribers(message)
@@ -301,21 +335,21 @@ class EventConsumer(ABC):
                     errors=errors,
                 )
 
-                await self.nack(
-                    message,
-                    requeue=True,
-                )
+                await self._acknowledger.retry(message)
 
             case FailureOutcome(exception_group=group):
                 logger.error(f"{self.name} event " f"{message.id} failed: " f"{group}")
 
+                # Non-retryable failure → dead-letter (diverted for inspection),
+                # reported once via on_dead_letter. The DLQ envelope carries the
+                # failure reason/class.
                 await self._safe_notify_hooks(
-                    "on_failure",
+                    "on_dead_letter",
                     message,
                     error=group,
                 )
 
-                await self.ack(message)
+                await self._acknowledger.dlq(message, error=group)
 
             case SuccessOutcome(duration_ms=duration_ms):
                 await self._safe_notify_hooks(
@@ -324,7 +358,7 @@ class EventConsumer(ABC):
                     duration_ms=duration_ms,
                 )
 
-                await self.ack(message)
+                await self._acknowledger.ack(message)
 
     async def _safe_notify_hooks(
         self,
@@ -396,31 +430,3 @@ class EventConsumer(ABC):
         resources, and ensure that no further events are delivered to subscribers.
         """
         ...
-
-    @abstractmethod
-    async def ack(self, message: Message) -> None:
-        """
-        Acknowledge the receipt of an event.
-
-        This method should be implemented to acknowledge the receipt of an event,
-        such as confirming that the event has been processed successfully.
-
-        Args:
-            message: The message to ack.
-        """
-        pass
-
-    @abstractmethod
-    async def nack(self, message: Message, requeue: bool = False) -> None:
-        """
-        Negative acknowledge the receipt of an event.
-
-        This method should be implemented to negatively acknowledge the receipt of an event,
-        such as indicating that the event was not processed successfully. If requeue is True,
-        the message will be requeued for re-processing.
-
-        Args:
-            message: The message to nack.
-            requeue: Whether to requeue the message.
-        """
-        pass

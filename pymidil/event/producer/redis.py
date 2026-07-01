@@ -5,6 +5,7 @@ from typing import Any, Dict, Literal, Optional
 import json
 from redis.asyncio import Redis
 from pymidil.event.message import MessageBody
+from pymidil.event.otel import inject_headers, producer_span
 
 
 class RedisProducerEventConfig(BaseProducerConfig):
@@ -24,11 +25,13 @@ class RedisProducer(EventProducer):
     async def publish(
         self, payload: MessageBody, metadata: Optional[Dict[str, Any]] = None, **kwargs
     ) -> None:
-        # Redis pub/sub has no metadata side-channel, so trace headers ride in a
+        # Redis pub/sub has no header side-channel, so trace context rides in a
         # wire envelope: {"data": <payload>, "metadata": {"traceparent": ...}}.
-        headers = self._inject_trace(metadata)
-        envelope = {"data": payload, "metadata": headers}
-        await self._redis.publish(self._config.channel, json.dumps(envelope))
+        with producer_span(self._config.channel):
+            headers = dict(metadata or {})
+            inject_headers(headers)
+            envelope = {"data": payload, "metadata": headers}
+            await self._redis.publish(self._config.channel, json.dumps(envelope))
 
     async def close(self) -> None:
         await self._redis.close()

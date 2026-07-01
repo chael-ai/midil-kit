@@ -20,8 +20,24 @@ class ProducerTelemetrySink(TelemetrySink):
         self._close_producer = close_producer
 
     async def emit(self, envelope: TelemetryEnvelope) -> None:
+        """
+        Ship a single envelope to the producer sink destination.
+
+        This method publishes the envelope to the producer.
+
+        Args:
+            envelope (TelemetryEnvelope): The telemetry envelope to be shipped.
+        """
         await self._producer.publish(envelope.model_dump(mode="json"))
 
     async def aclose(self) -> None:
+        """
+        Release any resources held by the producer sink.
+
+        This method closes the producer if the close_producer flag is set.
+
+        Returns:
+            None
+        """
         if self._close_producer:
             await self._producer.close()
